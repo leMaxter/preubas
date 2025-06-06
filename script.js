@@ -26,6 +26,7 @@ function iniciarCamara() {
         return;
     }
 
+
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
@@ -68,6 +69,10 @@ function analizarImagen() {
         return;
     }
 
+    if (!faceApiReady) {
+        resultDiv.textContent = 'El modelo est\u00e1 carg\u00e1ndose, por favor espera...';
+        return;
+    }
     faceapi.detect((err, results) => {
         if (err) {
             console.error('Error en FaceApi:', err);
@@ -99,6 +104,33 @@ function analizarImagen() {
             resultDiv.textContent = 'No se detectó un rostro en la imagen.';
         }
     });
+
+            const hAvg = hSum / pixelCount;
+            const sAvg = sSum / pixelCount;
+            const vAvg = vSum / pixelCount;
+            mostrarResultado(hAvg, sAvg, vAvg);
+        } else {
+            resultDiv.textContent = 'No se detect\u00f3 un rostro en la imagen.';
+        }
+    });
+    let hSum = 0, sSum = 0, vSum = 0;
+    const pixelCount = data.length / 4;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const [h, s, v] = rgbToHsv(r, g, b);
+        hSum += h;
+        sSum += s;
+        vSum += v;
+    }
+
+    const hAvg = hSum / pixelCount;
+    const sAvg = sSum / pixelCount;
+    const vAvg = vSum / pixelCount;
+
+    mostrarResultado(hAvg, sAvg, vAvg);
 }
 
 function mostrarResultado(h, s, v) {
@@ -110,6 +142,12 @@ function mostrarResultado(h, s, v) {
         .catch(err => {
             console.error('Error al clasificar la imagen:', err);
             resultDiv.textContent = 'Error al obtener la recomendación.';
+
+            resultDiv.innerHTML = `Tono medio: ${h.toFixed(1)}\u00b0, Saturaci\u00f3n media: ${s.toFixed(1)}%, Brillo medio: ${v.toFixed(1)}<br>Recomendaci\u00f3n: ${label}`;
+        })
+        .catch(err => {
+            console.error('Error al clasificar la imagen:', err);
+            resultDiv.textContent = 'Error al obtener la recomendaci\u00f3n.';
         });
 }
 
@@ -119,3 +157,40 @@ window.addEventListener('load', () => {
     iniciarCamara();
     cargarModelo();
 });
+
+
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    let r = 0, g = 0, b = 0;
+    const pixelCount = imageData.data.length / 4;
+
+    for (let i = 0; i < imageData.data.length; i += 4) {
+        r += imageData.data[i];
+        g += imageData.data[i + 1];
+        b += imageData.data[i + 2];
+    }
+
+    r = Math.round(r / pixelCount);
+    g = Math.round(g / pixelCount);
+    b = Math.round(b / pixelCount);
+
+    mostrarResultado(r, g, b);
+}
+
+function mostrarResultado(r, g, b) {
+    // Calcular el brillo aproximado
+    const brightness = (r + g + b) / 3;
+
+    let recommendation = '';
+
+    if (brightness < 80) {
+        recommendation = 'Tonos claros y base luminosa para iluminar tu rostro.';
+    } else if (brightness < 160) {
+        recommendation = 'Colores neutros y rubores suaves.';
+    } else {
+        recommendation = 'Tonos intensos y delineados marcados.';
+    }
+
+    resultDiv.innerHTML = `Color promedio: rgb(${r}, ${g}, ${b})<br>Recomendación: ${recommendation}`;
+}
+
+captureButton.addEventListener('click', analizarImagen);
