@@ -12,12 +12,15 @@ function cargarModelo() {
     classifier.addExample([30, 20, 40], 'Tonos claros y base luminosa para iluminar tu rostro.');
     classifier.addExample([180, 40, 120], 'Colores neutros y rubores suaves.');
     classifier.addExample([330, 70, 200], 'Tonos intensos y delineados marcados.');
+    console.log("✅ Modelo KNN cargado");
 }
 
 function iniciarFaceApi() {
     const options = { withLandmarks: false, withDescriptors: false };
     faceapi = ml5.faceApi(video, options, () => {
         faceApiReady = true;
+        console.log("✅ FaceApi lista");
+        resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
     });
 }
 
@@ -27,11 +30,12 @@ function iniciarCamara() {
             .then(stream => {
                 video.srcObject = stream;
                 video.onloadeddata = () => {
+                    console.log("📸 Cámara activada");
                     iniciarFaceApi();
                 };
             })
             .catch(err => {
-                console.error('No se pudo acceder a la cámara:', err);
+                console.error('❌ No se pudo acceder a la cámara:', err);
                 resultDiv.textContent = 'No se pudo acceder a la cámara.';
             });
     } else {
@@ -45,7 +49,6 @@ function rgbToHsv(r, g, b) {
     let h, s, v = max;
     const d = max - min;
     s = max === 0 ? 0 : d / max;
-
     if (max === min) {
         h = 0;
     } else {
@@ -56,22 +59,25 @@ function rgbToHsv(r, g, b) {
         }
         h /= 6;
     }
-
     return [h * 360, s * 100, v * 255];
 }
 
 function analizarImagen() {
+    console.log("📍 Botón presionado");
     if (!faceApiReady) {
+        console.warn("⏳ FaceApi aún no está lista");
         resultDiv.textContent = 'El modelo está cargándose, por favor espera...';
         return;
     }
 
     faceapi.detect((err, results) => {
         if (err) {
-            console.error('Error en FaceApi:', err);
+            console.error('❌ Error en FaceApi:', err);
             resultDiv.textContent = 'Error al detectar el rostro.';
             return;
         }
+
+        console.log("🔍 Detección:", results);
 
         if (results && results.length > 0) {
             const { x, y, width, height } = results[0].alignedRect._box;
@@ -93,6 +99,7 @@ function analizarImagen() {
             const sAvg = sSum / pixelCount;
             const vAvg = vSum / pixelCount;
 
+            console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
             mostrarResultado(hAvg, sAvg, vAvg);
         } else {
             resultDiv.textContent = 'No se detectó un rostro en la imagen.';
@@ -103,11 +110,12 @@ function analizarImagen() {
 function mostrarResultado(h, s, v) {
     classifier.classify([h, s, v])
         .then(result => {
+            console.log("✅ Clasificación:", result);
             const label = result.label;
             resultDiv.innerHTML = `Tono medio: ${h.toFixed(1)}°, Saturación media: ${s.toFixed(1)}%, Brillo medio: ${v.toFixed(1)}<br><strong>Recomendación:</strong> ${label}`;
         })
         .catch(err => {
-            console.error('Error al clasificar la imagen:', err);
+            console.error('❌ Error al clasificar:', err);
             resultDiv.textContent = 'Error al obtener la recomendación.';
         });
 }
@@ -117,4 +125,6 @@ window.addEventListener('load', () => {
     cargarModelo();
 });
 
+// Compatibilidad móvil: click + touchstart
 captureButton.addEventListener('click', analizarImagen);
+captureButton.addEventListener('touchstart', analizarImagen);
