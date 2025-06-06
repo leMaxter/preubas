@@ -90,36 +90,45 @@ function analizarImagen() {
             return;
         }
 
-        console.log("🔍 Resultados:", results);
+        console.log("🔍 Resultados detect():", results);
 
-        if (results && results.length > 0 && results[0].alignedRect) {
-            const { x, y, width, height } = results[0].alignedRect._box;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const data = context.getImageData(x, y, width, height).data;
-
-            let hSum = 0, sSum = 0, vSum = 0;
-            const pixelCount = data.length / 4;
-
-            for (let i = 0; i < data.length; i += 4) {
-                const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
-                hSum += h;
-                sSum += s;
-                vSum += v;
-            }
-
-            const hAvg = hSum / pixelCount;
-            const sAvg = sSum / pixelCount;
-            const vAvg = vSum / pixelCount;
-
-            console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
-            mostrarResultado(hAvg, sAvg, vAvg);
-        } else {
-            console.warn("🚫 No se detectó rostro o falta alignedRect");
-            resultDiv.textContent = 'No se detectó un rostro en la imagen.';
+        if (!results || results.length === 0) {
+            resultDiv.textContent = 'No se detectó ningún rostro.';
+            return;
         }
+
+        const box = results[0].alignedRect?._box || results[0].detection?._box;
+
+        if (!box) {
+            console.warn("🚫 No se encontró ninguna región facial (box vacío)");
+            resultDiv.textContent = 'No se encontró una región de rostro válida.';
+            return;
+        }
+
+        const { x, y, width, height } = box;
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const data = context.getImageData(x, y, width, height).data;
+
+        let hSum = 0, sSum = 0, vSum = 0;
+        const pixelCount = data.length / 4;
+
+        for (let i = 0; i < data.length; i += 4) {
+            const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+            hSum += h;
+            sSum += s;
+            vSum += v;
+        }
+
+        const hAvg = hSum / pixelCount;
+        const sAvg = sSum / pixelCount;
+        const vAvg = vSum / pixelCount;
+
+        console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
+        mostrarResultado(hAvg, sAvg, vAvg);
     });
 }
+
 
 function mostrarResultado(h, s, v) {
     classifier.classify([h, s, v])
