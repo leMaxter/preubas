@@ -18,15 +18,19 @@ function cargarModelo() {
 function iniciarFaceApi() {
     const options = { withLandmarks: true, withDescriptors: false };
     faceapi = ml5.faceApi(video, options, () => {
-        console.log("📥 FaceApi cargada, haciendo prueba de detección...");
+        console.log("📥 Modelo de FaceApi cargado");
+
+        // Verificamos que detecte algo desde el inicio
         faceapi.detect((err, results) => {
             if (err) {
-                console.error("❌ Error inicial en FaceApi:", err);
-            } else {
-                console.log("🧠 Primera detección:", results);
-                faceApiReady = true;
-                resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
+                console.error("❌ Error inicial detect:", err);
+                resultDiv.textContent = 'Error al inicializar FaceApi.';
+                return;
             }
+
+            console.log("🧠 Primera detección completada:", results);
+            faceApiReady = true;
+            resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
         });
     });
 }
@@ -56,7 +60,6 @@ function rgbToHsv(r, g, b) {
     let h, s, v = max;
     const d = max - min;
     s = max === 0 ? 0 : d / max;
-
     if (max === min) {
         h = 0;
     } else {
@@ -67,7 +70,6 @@ function rgbToHsv(r, g, b) {
         }
         h /= 6;
     }
-
     return [h * 360, s * 100, v * 255];
 }
 
@@ -80,8 +82,7 @@ function analizarImagen() {
         return;
     }
 
-    console.log("📦 Ejecutando faceapi.detect()...");
-
+    console.log("📦 Ejecutando faceapi.detect...");
     faceapi.detect((err, results) => {
         if (err) {
             console.error('❌ Error en FaceApi:', err);
@@ -114,18 +115,16 @@ function analizarImagen() {
             console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
             mostrarResultado(hAvg, sAvg, vAvg);
         } else {
-            console.warn("🚫 No se detectó un rostro o falta alignedRect");
+            console.warn("🚫 No se detectó rostro o falta alignedRect");
             resultDiv.textContent = 'No se detectó un rostro en la imagen.';
         }
     });
 }
 
 function mostrarResultado(h, s, v) {
-    console.log("🟡 Clasificando con:", h, s, v);
-
     classifier.classify([h, s, v])
         .then(result => {
-            console.log("✅ Resultado de clasificación:", result);
+            console.log("✅ Clasificación:", result);
             const label = result.label;
             resultDiv.innerHTML = `Tono medio: ${h.toFixed(1)}°, Saturación media: ${s.toFixed(1)}%, Brillo medio: ${v.toFixed(1)}<br><strong>Recomendación:</strong> ${label}`;
         })
@@ -135,15 +134,12 @@ function mostrarResultado(h, s, v) {
         });
 }
 
-// Inicializar todo
+// Iniciar todo
 window.addEventListener('load', () => {
     iniciarCamara();
     cargarModelo();
 });
 
-// Compatibilidad móvil: click + touchstart
+// Compatibilidad móvil
 captureButton.addEventListener('click', analizarImagen);
-captureButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // evitar doble ejecución
-    analizarImagen();
-});
+captureButton.addEventListener('touchstart', analizarImagen);
