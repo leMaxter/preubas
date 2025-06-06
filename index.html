@@ -9,11 +9,11 @@
 <body>
     <header>
         <h1>Analizador de Maquillaje</h1>
-        <p>Demostración educativa de recomendación en base a la imagen de tu rostro</p>
+        <p>Demostración educativa que emplea inteligencia artificial para sugerir maquillaje a partir de la imagen de tu rostro</p>
     </header>
     <main>
         <section>
-            <p>Permite el acceso a tu cámara para analizar el color promedio de tu rostro. La recomendación es orientativa y no almacenamos tus imágenes.</p>
+            <p>Permite el acceso a tu cámara para analizar el tono de tu piel mediante un pequeño modelo de IA. No almacenamos tus imágenes y la recomendación es orientativa.</p>
         </section>
         <section>
             <video autoplay="true" id="videoElement"></video>
@@ -25,8 +25,9 @@
         </section>
     </main>
     <footer>
-        <p>Proyecto de ejemplo. Las sugerencias se basan únicamente en el brillo medio detectado.</p>
+        <p>Proyecto de ejemplo basado en un clasificador de machine learning. Las sugerencias son orientativas.</p>
     </footer>
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

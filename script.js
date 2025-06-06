@@ -2,6 +2,17 @@ const video = document.getElementById('videoElement');
 const canvas = document.getElementById('canvas');
 const resultDiv = document.getElementById('result');
 const captureButton = document.getElementById('capture');
+let classifier;
+
+function cargarModelo() {
+    classifier = ml5.KNNClassifier();
+    classifier.addExample([40, 40, 40], 'Tonos claros y base luminosa para iluminar tu rostro.');
+    classifier.addExample([70, 70, 70], 'Tonos claros y base luminosa para iluminar tu rostro.');
+    classifier.addExample([120, 120, 120], 'Colores neutros y rubores suaves.');
+    classifier.addExample([150, 150, 150], 'Colores neutros y rubores suaves.');
+    classifier.addExample([200, 200, 200], 'Tonos intensos y delineados marcados.');
+    classifier.addExample([230, 230, 230], 'Tonos intensos y delineados marcados.');
+}
 
 function iniciarCamara() {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -40,20 +51,20 @@ function analizarImagen() {
 }
 
 function mostrarResultado(r, g, b) {
-    const brightness = (r + g + b) / 3;
-    let recommendation = '';
-
-    if (brightness < 80) {
-        recommendation = 'Tonos claros y base luminosa para iluminar tu rostro.';
-    } else if (brightness < 160) {
-        recommendation = 'Colores neutros y rubores suaves.';
-    } else {
-        recommendation = 'Tonos intensos y delineados marcados.';
-    }
-
-    resultDiv.innerHTML = `Color promedio: rgb(${r}, ${g}, ${b})<br>Recomendación: ${recommendation}`;
+    classifier.classify([r, g, b])
+        .then(result => {
+            const label = result.label;
+            resultDiv.innerHTML = `Color promedio: rgb(${r}, ${g}, ${b})<br>Recomendación: ${label}`;
+        })
+        .catch(err => {
+            console.error('Error al clasificar la imagen:', err);
+            resultDiv.textContent = 'Error al obtener la recomendación.';
+        });
 }
 
 captureButton.addEventListener('click', analizarImagen);
 
-window.addEventListener('load', iniciarCamara);
+window.addEventListener('load', () => {
+    iniciarCamara();
+    cargarModelo();
+});
