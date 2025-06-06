@@ -17,21 +17,29 @@ function cargarModelo() {
 
 function iniciarFaceApi() {
     const options = { withLandmarks: true, withDescriptors: false };
-    faceapi = ml5.faceApi(video, options, () => {
-        console.log("📥 Modelo de FaceApi cargado");
 
-        faceapi.detect((err, results) => {
-            if (err) {
-                console.error("❌ Error inicial detect:", err);
-                resultDiv.textContent = 'Error al inicializar FaceApi.';
-                return;
-            }
-            console.log("🧠 Primera detección completada:", results);
-            faceApiReady = true;
-            resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
-        });
-    });
+    faceapi = ml5.faceApi(video, options, modelListo);
+
+    function modelListo() {
+        console.log("📥 FaceApi cargada correctamente");
+
+        // Esperamos unos ms a que la cámara estabilice (en móviles a veces tarda)
+        setTimeout(() => {
+            faceapi.detect((err, results) => {
+                if (err || !results) {
+                    console.error("❌ Error inicial detect:", err || "Resultados nulos");
+                    resultDiv.textContent = '❌ Error al inicializar FaceApi. Intenta recargar.';
+                    return;
+                }
+
+                console.log("🧠 Primera detección completada:", results);
+                faceApiReady = true;
+                resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
+            });
+        }, 1000); // Espera de 1 segundo (ajustable)
+    }
 }
+
 
 function iniciarCamara() {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
