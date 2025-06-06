@@ -3,73 +3,106 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asistente de Maquillaje</title>
-  <link rel="stylesheet" href="style.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+  <title>Debug Cámara</title>
   <style>
-    /* Solo para depurar: dibujar el canvas encima del vídeo */
-    .video-wrapper {
-      position: relative;
-      display: inline-block;
-    }
-    #videoElement {
-      width: 320px;
-      height: 240px;
+    body { font-family: sans-serif; text-align: center; margin-top: 1rem; }
+    video, canvas { 
+      border: 1px solid #666; 
+      margin-bottom: 0.5rem; 
+      width: 320px; 
+      height: 240px; 
       background: #000;
     }
-    #canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 320px;
-      height: 240px;
-      pointer-events: none; /* no interfiera con el botón */
-    }
-    #capture {
-      margin-top: 8px;
-      display: block;
-    }
-    #result {
-      margin-top: 8px;
-      font-weight: bold;
-    }
+    #result { font-weight: bold; margin-top: 0.5rem;}
   </style>
 </head>
 <body>
-  <header class="hero">
-    <h1>Asistente de Maquillaje</h1>
-    <p>Analiza tu rostro con ayuda de la inteligencia artificial para descubrir qué tonos te favorecen.</p>
-  </header>
-  <main class="container">
-    <section class="instructions">
-      <h2>Paso a paso</h2>
-      <ol>
-        <li>Abre la página desde un servidor local o HTTPS para que la cámara funcione.</li>
-        <li>Permite el acceso a la cámara.</li>
-        <li>Pulsa <strong>Analizar</strong> para capturar la imagen.</li>
-        <li>El sistema detectará tu rostro y evaluará su color.</li>
-        <li>Revisa la recomendación de maquillaje en pantalla.</li>
-      </ol>
-      <p class="disclaimer">No almacenamos tus fotos. La sugerencia es únicamente orientativa.</p>
-    </section>
-    <section class="demo">
-      <div class="video-wrapper">
-        <video id="videoElement" autoplay muted playsinline></video>
-        <canvas id="canvas" width="320" height="240"></canvas>
-      </div>
-      <button id="capture">Analizar</button>
-      <div id="result">Esperando detección...</div>
-    </section>
-  </main>
-  <footer>
-    <p>Proyecto educativo basado en un clasificador KNN y detección facial con MediaPipe.</p>
-  </footer>
+  <h2>Prueba de cámara y MediaPipe</h2>
+  <video id="videoElement" autoplay muted playsinline></video><br>
+  <canvas id="canvas" width="320" height="240"></canvas><br>
+  <button id="capture">Probar Detección</button>
+  <div id="result">⏳ Sin iniciar detección</div>
 
-  <!-- Carga MediaPipe Face Detection y CameraUtils -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <!-- Tu script con la lógica de detección y clasificación -->
-  <script src="script.js"></script>
+  <script>
+    const video = document.getElementById("videoElement");
+    const canvas = document.getElementById("canvas");
+    const resultDiv = document.getElementById("result");
+    const captureButton = document.getElementById("capture");
+    const ctx = canvas.getContext("2d");
+
+    let detectorReady = false;
+    let lastDetection = null;
+
+    // Paso A: Iniciar cámara y pintar directamente en el vídeo
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          video.play();
+          resultDiv.textContent = "📸 Cámara activa. Esperando modelo...";
+          iniciarMediaPipe();
+        };
+      })
+      .catch(err => {
+        console.error("Error accediendo a la cámara:", err);
+        resultDiv.textContent = "❌ No se pudo acceder a la cámara.";
+      });
+
+    // Paso B: Configurar MediaPipe Face Detection  
+    function iniciarMediaPipe() {
+      const faceDetector = new FaceDetection({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+      });
+      faceDetector.setOptions({
+        modelSelection: 0,
+        minDetectionConfidence: 0.3 // Umbral más bajo para pruebas
+      });
+
+      faceDetector.onResults(results => {
+        console.log("⏺ MediaPipe onResults:", results.detections);
+        if (results.detections.length > 0) {
+          // dibujar bounding box en el canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const box = results.detections[0].boundingBox;
+          const x = (box.xCenter - box.width / 2) * canvas.width;
+          const y = (box.yCenter - box.height / 2) * canvas.height;
+          const w = box.width * canvas.width;
+          const h = box.height * canvas.height;
+          ctx.strokeStyle = "#00FF00";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, y, w, h);
+          lastDetection = box;
+          detectorReady = true;
+          resultDiv.textContent = "✔️ Rostro detectado (consúltate consola).";
+        } else {
+          detectorReady = false;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          resultDiv.textContent = "⚠️ Sin detección en este frame.";
+        }
+      });
+
+      new Camera(video, {
+        onFrame: async () => {
+          await faceDetector.send({ image: video });
+        },
+        width: 320,
+        height: 240
+      }).start();
+      resultDiv.textContent = "🔄 MediaPipe iniciado (min 0.3 confiance).";
+    }
+
+    // Paso C: Botón para probar “¿detecta un rostro ahora?”  
+    captureButton.addEventListener("click", () => {
+      if (detectorReady) {
+        resultDiv.textContent = "🔍 Ya hay rostro detectado en el canvas.";
+      } else {
+        resultDiv.textContent = "⚠️ Aún no detecta tu rostro. Ajusta iluminacion/distancia.";
+      }
+    });
+  </script>
 </body>
 </html>
-
