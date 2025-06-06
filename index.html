@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asesor de Maquillaje AI</title>
+  <title>Asesor de Maquillaje AI (Sin detección)</title>
 
-  <!-- Fuentes y estilos -->
+  <!-- Fuente y estilos -->
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet" />
-
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-  <!-- NOTA: Ya no cargamos camera_utils, lo sustituimos por requestAnimationFrame -->
-  <!-- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script> -->
 
   <style>
     :root {
       --color-fondo: #faf8f5;
-      --color-principal: #e48fb0;
-      --color-secundario: #4a4a4a;
-      --color-acento: #f2c1d1;
-      --color-card: #ffffff;
+      --color-principal: #e48fb0;      /* Rosa maquillaje */
+      --color-secundario: #4a4a4a;     /* Gris oscuro para texto */
+      --color-acento: #f2c1d1;         /* Rosa claro */
+      --color-card: #ffffff;          /* Blanco para tarjetas */
       --sombra-card: rgba(0, 0, 0, 0.1);
       --radios-bordes: 12px;
       --font-heading: 'Poppins', sans-serif;
       --font-body: 'Poppins', sans-serif;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
       background-color: var(--color-fondo);
       font-family: var(--font-body);
@@ -52,6 +52,7 @@
       max-width: 400px;
       line-height: 1.4;
     }
+
     .contenedor {
       width: 100%;
       max-width: 420px;
@@ -61,16 +62,16 @@
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
+
     .video-wrapper {
       position: relative;
       width: 100%;
-      padding-bottom: 75%; /* 4:3 */
+      padding-bottom: 75%; /* ratio 4:3 */
       border-radius: var(--radios-bordes);
       overflow: hidden;
       border: 2px solid var(--color-acento);
       margin-bottom: 1rem;
     }
-    /* IMPORTANTE: agregamos playsinline y muted en el video */
     #videoElement {
       position: absolute;
       top: 0;
@@ -80,7 +81,21 @@
       object-fit: cover;
       border-radius: var(--radios-bordes);
     }
-    #canvas { display: none; }
+    /* Rectángulo guía (semi-transparente) */
+    .overlay {
+      position: absolute;
+      top: 12.5%;
+      left: 12.5%;
+      width: 75%;
+      height: 75%;
+      border: 2px dashed var(--color-principal);
+      border-radius: var(--radios-bordes);
+      pointer-events: none;
+    }
+
+    #canvas {
+      display: none; /* sólo se usará para capturar el frame */
+    }
     #capture {
       width: 100%;
       padding: 0.75rem;
@@ -94,8 +109,13 @@
       transition: background 0.3s ease;
       margin-bottom: 1rem;
     }
-    #capture:hover { background: #d6799e; }
-    #capture:active { transform: scale(0.98); }
+    #capture:hover {
+      background: #d6799e;
+    }
+    #capture:active {
+      transform: scale(0.98);
+    }
+
     #result {
       background-color: var(--color-card);
       padding: 1rem;
@@ -123,33 +143,45 @@
       list-style-type: disc;
       margin-bottom: 0.75rem;
     }
-    #result ul li { margin-bottom: 0.4rem; }
-    #result p { margin-bottom: 0.6rem; }
+    #result ul li {
+      margin-bottom: 0.4rem;
+    }
+    #result p {
+      margin-bottom: 0.6rem;
+    }
+
     @media (max-width: 480px) {
-      .contenedor { padding: 1rem; }
-      h1 { font-size: 2rem; }
-      #capture { font-size: 1rem; }
+      .contenedor {
+        padding: 1rem;
+      }
+      h1 {
+        font-size: 2rem;
+      }
+      #capture {
+        font-size: 1rem;
+      }
     }
   </style>
 </head>
 <body>
   <h1>Asesor de Maquillaje AI</h1>
   <p class="subtitle">
-    Descubre tu tono de piel y recibe recomendaciones de maquillaje en segundos. <br/>
-    Asegúrate de tener buena luz y que tu rostro esté completamente dentro del recuadro.
+    Coloca tu rostro dentro del recuadro punteado y pulsa “Analizar”<br/>
+    para conocer tu tono/subtono y recibir recomendaciones.
   </p>
 
   <div class="contenedor">
     <div class="video-wrapper">
-      <!-- OBSERVA: playsinline y muted son imprescindibles en móvil -->
+      <!-- playsinline y muted para que funcione en móvil -->
       <video id="videoElement" autoplay muted playsinline></video>
+      <div class="overlay"></div>
       <canvas id="canvas" width="320" height="240"></canvas>
     </div>
 
     <button id="capture">🌟 Analizar</button>
 
     <div id="result">
-      Esperando detección de rostro...
+      Asegúrate de que tu cara esté dentro del recuadro punteado y con buena luz.
     </div>
   </div>
 
@@ -160,40 +192,15 @@
     const captureButton = document.getElementById("capture");
     const resultDiv = document.getElementById("result");
 
-    let lastBox = null;
-    let deteccionActiva = false;
+    // Tamaño de la región de interés (75% de ancho × 75% de alto), centrado:
+    const ROI = {
+      x: 0.125,   // 12.5% desde la izquierda
+      y: 0.125,   // 12.5% desde arriba
+      w: 0.75,    // 75% del ancho total
+      h: 0.75     // 75% del alto total
+    };
 
-    // Canvas auxiliar para muestrear la mejilla (100×100)
-    const canvasPiel = document.createElement("canvas");
-    canvasPiel.width = canvasPiel.height = 100;
-
-    // 1) Inicializar Face Detection con un umbral algo más bajo
-    const faceDetector = new FaceDetection({
-      locateFile: (file) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
-    });
-    faceDetector.setOptions({
-      modelSelection: 0,
-      minDetectionConfidence: 0.2, 
-    });
-    faceDetector.onResults((results) => {
-      console.log("✅ onResults:", results);
-      if (results.detections.length > 0) {
-        lastBox = results.detections[0].boundingBox;
-        if (!deteccionActiva) {
-          deteccionActiva = true;
-          resultDiv.textContent = "✔️ Rostro detectado. Pulsa ‘Analizar’ para tu recomendación.";
-        }
-      } else {
-        lastBox = null;
-        if (deteccionActiva) {
-          deteccionActiva = false;
-          resultDiv.textContent = "⚠️ No se detecta rostro.";
-        }
-      }
-    });
-
-    // 2) En móviles, sustituimos new Camera(...) por un loop manual
+    // 1) Iniciar cámara (funciona en móvil y desktop)
     function iniciarCamara() {
       navigator.mediaDevices
         .getUserMedia({ video: { facingMode: "user" } })
@@ -201,24 +208,59 @@
           video.srcObject = stream;
           video.onloadedmetadata = () => {
             video.play();
-            procesarFrame(); // arrancamos el bucle manual
           };
         })
         .catch((err) => {
-          console.error("Error al acceder a la cámara:", err);
-          resultDiv.textContent = "❌ No se pudo acceder a la cámara.";
+          console.error("❌ Error al acceder a la cámara:", err);
+          resultDiv.textContent = "Error al acceder a la cámara. Revisa permisos.";
         });
     }
 
-    // Esta función manda cada frame de video al faceDetector
-    async function procesarFrame() {
-      if (video.readyState >= 2) { // El vídeo ya está disponible
-        await faceDetector.send({ image: video });
-      }
-      requestAnimationFrame(procesarFrame);
+    // 2) Función para tomar el frame y analizar colores
+    function procesarFrameSimple() {
+      // 2.1) Dibujar el vídeo completo en el canvas oculto
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 2.2) Calcular coordenadas de la región central (ROI) en pixeles
+      const sx = ROI.x * canvas.width;
+      const sy = ROI.y * canvas.height;
+      const sw = ROI.w * canvas.width;
+      const sh = ROI.h * canvas.height;
+
+      // 2.3) Extraer esa región a otro canvas temporal de 100×100 px
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = tempCanvas.height = 100;
+      const tempCtx = tempCanvas.getContext("2d");
+      // Dibujar y escalar la ROI en 100×100
+      tempCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, 100, 100);
+
+      // 2.4) Calcular promedio en Lab de esos 100×100 píxeles
+      const [Lm, aM, bM] = calcularLabPromedio(tempCanvas);
+
+      // 2.5) Clasificar tono/subtono
+      const { tono, subtono } = clasificarTonoSubtono([Lm, aM, bM]);
+
+      // 2.6) Obtener recomendaciones
+      const rec = sugerirMaquillaje(tono, subtono);
+
+      // 2.7) Mostrar resultado
+      resultDiv.innerHTML = `
+        <h3>Resultados</h3>
+        <p><strong>Tono de piel:</strong> ${tono} (L* = ${Lm.toFixed(1)})</p>
+        <p><strong>Subtono:</strong> ${subtono} (a* = ${aM.toFixed(1)}, b* = ${bM.toFixed(1)})</p>
+        <hr>
+        <h4>Recomendación de maquillaje:</h4>
+        <ul>
+          <li><strong>Base:</strong> ${rec.tipoBase}</li>
+          <li><strong>Sombras:</strong> ${rec.paletaSombras}</li>
+          <li><strong>Rubor:</strong> ${rec.rubor}</li>
+          <li><strong>Labial:</strong> ${rec.labial}</li>
+        </ul>
+        <p><em>Consejo:</em> ${rec.consejo}</p>
+      `;
     }
 
-    // 3) Conversión RGB → CIELAB
+    // 3) Conversión RGB → CIELAB (misma lógica que antes)
     function pivotRgb(u) {
       return u > 0.04045 ? Math.pow((u + 0.055) / 1.055, 2.4) : u / 12.92;
     }
@@ -241,13 +283,13 @@
       const bVal = 200 * (fy - fz);
       return [L, a, bVal];
     }
-    function calcularLabPromedio(canvasPiel) {
-      const ctx2 = canvasPiel.getContext("2d");
-      const imgData = ctx2.getImageData(0, 0, canvasPiel.width, canvasPiel.height).data;
+    function calcularLabPromedio(canvasTemp) {
+      const ctx2 = canvasTemp.getContext("2d");
+      const data = ctx2.getImageData(0, 0, canvasTemp.width, canvasTemp.height).data;
       let sumL = 0, sumA = 0, sumB = 0;
-      const totalPx = imgData.length / 4;
-      for (let i = 0; i < imgData.length; i += 4) {
-        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+      const totalPx = data.length / 4;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
         const [L, a, bVal] = rgbToLab(r, g, b);
         sumL += L;
         sumA += a;
@@ -256,29 +298,7 @@
       return [sumL / totalPx, sumA / totalPx, sumB / totalPx];
     }
 
-    // 4) Extraer la región de la mejilla (inferior-derecho de la boundingBox)
-    function extraerRegionMejilla() {
-      if (!lastBox) return null;
-      const { xCenter, yCenter, width: wNorm, height: hNorm } = lastBox;
-      const boxW = wNorm * canvas.width;
-      const boxH = hNorm * canvas.height;
-      const boxX = (xCenter - wNorm / 2) * canvas.width;
-      const boxY = (yCenter - hNorm / 2) * canvas.height;
-      const subW = boxW / 2;
-      const subH = boxH / 2;
-      const subX = boxX + boxW / 2;
-      const subY = boxY + boxH / 2;
-      const sx = Math.max(0, subX);
-      const sy = Math.max(0, subY);
-      const sw = Math.min(subW, canvas.width - sx);
-      const sh = Math.min(subH, canvas.height - sy);
-      const ctx2 = canvasPiel.getContext("2d");
-      ctx2.clearRect(0, 0, canvasPiel.width, canvasPiel.height);
-      ctx2.drawImage(canvas, sx, sy, sw, sh, 0, 0, 100, 100);
-      return canvasPiel;
-    }
-
-    // 5) Clasificar tono y subtono
+    // 4) Clasificar tono/subtono (mismo criterio de umbrales)
     function clasificarTonoSubtono([Lm, aM, bM]) {
       let tono;
       if (Lm >= 75) tono = "Muy claro";
@@ -295,7 +315,7 @@
       return { tono, subtono };
     }
 
-    // 6) Mapa de recomendaciones
+    // 5) Sugerencias de maquillaje (mismo mapa de antes)
     function sugerirMaquillaje(tono, subtono) {
       const recomendaciones = {
         "Muy claro": {
@@ -417,49 +437,15 @@
       return recomendaciones[tono][subtono];
     }
 
-    // 7) Función principal al hacer clic en “Analizar”
-    function procesarColorCara() {
-      if (!lastBox) {
-        resultDiv.textContent = "⚠️ No se detecta rostro actualmente.";
-        return;
-      }
-      // 7.1) Dibujamos vídeo en el canvas oculto
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // 7.2) Extraemos la mejilla
-      const regionPielCanvas = extraerRegionMejilla();
-      if (!regionPielCanvas) {
-        resultDiv.textContent = "❌ No se pudo extraer la región de la piel.";
-        return;
-      }
-      // 7.3) Calculamos Lab promedio
-      const [Lm, aM, bM] = calcularLabPromedio(regionPielCanvas);
-      // 7.4) Clasificamos tono/subtono
-      const { tono, subtono } = clasificarTonoSubtono([Lm, aM, bM]);
-      // 7.5) Obtenemos recomendaciones
-      const rec = sugerirMaquillaje(tono, subtono);
-      // 7.6) Mostramos en pantalla
-      resultDiv.innerHTML = `
-        <h3>Resultados</h3>
-        <p><strong>Tono de piel:</strong> ${tono} (L* = ${Lm.toFixed(1)})</p>
-        <p><strong>Subtono:</strong> ${subtono} (a* = ${aM.toFixed(1)}, b* = ${bM.toFixed(1)})</p>
-        <hr>
-        <h4>Recomendación de maquillaje:</h4>
-        <ul>
-          <li><strong>Base:</strong> ${rec.tipoBase}</li>
-          <li><strong>Sombras:</strong> ${rec.paletaSombras}</li>
-          <li><strong>Rubor:</strong> ${rec.rubor}</li>
-          <li><strong>Labial:</strong> ${rec.labial}</li>
-        </ul>
-        <p><em>Consejo:</em> ${rec.consejo}</p>
-      `;
-    }
-
+    // 6) Evento al hacer clic en “Analizar”
     captureButton.addEventListener("click", () => {
       resultDiv.textContent = "🔄 Analizando color de piel...";
-      procesarColorCara();
+      procesarFrameSimple();
     });
 
+    // Iniciar cámara cuando cargue la página
     window.addEventListener("load", iniciarCamara);
   </script>
 </body>
 </html>
+
