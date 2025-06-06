@@ -64,6 +64,7 @@ function rgbToHsv(r, g, b) {
 
 function analizarImagen() {
     console.log("📍 Botón presionado");
+
     if (!faceApiReady) {
         console.warn("⏳ FaceApi aún no está lista");
         resultDiv.textContent = 'El modelo está cargándose, por favor espera...';
@@ -71,13 +72,15 @@ function analizarImagen() {
     }
 
     faceapi.detect((err, results) => {
+        console.log("📦 faceapi.detect() ejecutado");
+
         if (err) {
             console.error('❌ Error en FaceApi:', err);
             resultDiv.textContent = 'Error al detectar el rostro.';
             return;
         }
 
-        console.log("🔍 Detección:", results);
+        console.log("🔍 Resultados:", results);
 
         if (results && results.length > 0) {
             const { x, y, width, height } = results[0].alignedRect._box;
@@ -103,14 +106,17 @@ function analizarImagen() {
             mostrarResultado(hAvg, sAvg, vAvg);
         } else {
             resultDiv.textContent = 'No se detectó un rostro en la imagen.';
+            console.warn("⚠️ No se detectó rostro");
         }
     });
 }
 
 function mostrarResultado(h, s, v) {
+    console.log("🟡 Clasificando con:", h, s, v);
+
     classifier.classify([h, s, v])
         .then(result => {
-            console.log("✅ Clasificación:", result);
+            console.log("✅ Resultado de clasificación:", result);
             const label = result.label;
             resultDiv.innerHTML = `Tono medio: ${h.toFixed(1)}°, Saturación media: ${s.toFixed(1)}%, Brillo medio: ${v.toFixed(1)}<br><strong>Recomendación:</strong> ${label}`;
         })
@@ -125,6 +131,9 @@ window.addEventListener('load', () => {
     cargarModelo();
 });
 
-// Compatibilidad móvil: click + touchstart
+// Compatibilidad móvil: click + touch
 captureButton.addEventListener('click', analizarImagen);
-captureButton.addEventListener('touchstart', analizarImagen);
+captureButton.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // evitar doble ejecución
+    analizarImagen();
+});
