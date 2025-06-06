@@ -5,8 +5,8 @@ const canvas = document.getElementById("canvas");
 const resultDiv = document.getElementById("result");
 const captureButton = document.getElementById("capture");
 
-let knn;                    // Clasificador simulado
-let lastBox = null;         // Última caja facial detectada (normalizada)
+let knn;                     // Clasificador simulado
+let lastBox = null;          // Última caja facial detectada (normalizada)
 let deteccionActiva = false; // Indica que MediaPipe ya ha detectado al menos un rostro
 
 // 1) Inicializar el “clasificador” (simulado con reglas muy sencillas)
@@ -97,8 +97,9 @@ function procesarYClasificar() {
   `;
 }
 
-// 4) Configuramos MediaPipe Face Detection (uso correcto de faceDetection.FaceDetector)
-const faceDetector = new faceDetection.FaceDetector({
+// 4) Configuramos MediaPipe Face Detection
+//    Fíjate que aquí usamos “FaceDetection.FaceDetector” (F mayúscula)
+const faceDetector = new FaceDetection.FaceDetector({
   locateFile: (file) => 
     `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
 });
