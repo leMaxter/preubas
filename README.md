@@ -1,4 +1,4 @@
-# preubas
+# prubas
 
 Esta demo utiliza la cámara del navegador para analizar la tonalidad de tu rostro y, mediante un sencillo modelo de aprendizaje automático, sugerir un tipo de maquillaje.
 
