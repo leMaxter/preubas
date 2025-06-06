@@ -43,8 +43,6 @@ function iniciarFaceApi() {
     }
 }
 
-
-
 function iniciarCamara() {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
@@ -116,7 +114,6 @@ function analizarImagen() {
 
         const { x, y, width, height } = box;
 
-        // Ajusta el tamaño del canvas a lo que ve la cámara
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
@@ -164,12 +161,10 @@ function mostrarResultado(h, s, v) {
         });
 }
 
-// Iniciar todo
 window.addEventListener('load', () => {
     iniciarCamara();
     cargarModelo();
 });
 
-// Compatibilidad móvil
 captureButton.addEventListener('click', analizarImagen);
 captureButton.addEventListener('touchstart', analizarImagen);
