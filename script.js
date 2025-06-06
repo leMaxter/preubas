@@ -21,6 +21,12 @@ function iniciarFaceApi() {
 }
 
 function iniciarCamara() {
+    if (!window.isSecureContext) {
+        resultDiv.textContent = 'Para usar la cámara abre la página mediante HTTPS o desde localhost (p. ej. con "python3 -m http.server").';
+        return;
+    }
+
+
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
@@ -57,6 +63,12 @@ function rgbToHsv(r, g, b) {
     return [h * 360, s * 100, v * 255];
 }
 
+function analizarImagen() {
+    if (!faceApiReady) {
+        resultDiv.textContent = 'El modelo está cargándose, por favor espera...';
+        return;
+    }
+
     if (!faceApiReady) {
         resultDiv.textContent = 'El modelo est\u00e1 carg\u00e1ndose, por favor espera...';
         return;
@@ -67,6 +79,7 @@ function rgbToHsv(r, g, b) {
             resultDiv.textContent = 'Error al detectar el rostro.';
             return;
         }
+
         if (results && results.length > 0) {
             const { x, y, width, height } = results[0].alignedRect._box;
             const context = canvas.getContext('2d');
@@ -81,6 +94,17 @@ function rgbToHsv(r, g, b) {
                 sSum += s;
                 vSum += v;
             }
+
+            const hAvg = hSum / pixelCount;
+            const sAvg = sSum / pixelCount;
+            const vAvg = vSum / pixelCount;
+
+            mostrarResultado(hAvg, sAvg, vAvg);
+        } else {
+            resultDiv.textContent = 'No se detectó un rostro en la imagen.';
+        }
+    });
+
             const hAvg = hSum / pixelCount;
             const sAvg = sSum / pixelCount;
             const vAvg = vSum / pixelCount;
@@ -113,6 +137,12 @@ function mostrarResultado(h, s, v) {
     classifier.classify([h, s, v])
         .then(result => {
             const label = result.label;
+            resultDiv.innerHTML = `Tono medio: ${h.toFixed(1)}°, Saturación media: ${s.toFixed(1)}%, Brillo medio: ${v.toFixed(1)}<br>Recomendación: ${label}`;
+        })
+        .catch(err => {
+            console.error('Error al clasificar la imagen:', err);
+            resultDiv.textContent = 'Error al obtener la recomendación.';
+
             resultDiv.innerHTML = `Tono medio: ${h.toFixed(1)}\u00b0, Saturaci\u00f3n media: ${s.toFixed(1)}%, Brillo medio: ${v.toFixed(1)}<br>Recomendaci\u00f3n: ${label}`;
         })
         .catch(err => {
@@ -127,6 +157,7 @@ window.addEventListener('load', () => {
     iniciarCamara();
     cargarModelo();
 });
+
 
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
     let r = 0, g = 0, b = 0;

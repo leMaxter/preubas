@@ -83,3 +83,19 @@ footer {
     font-size: 0.8rem;
     color: #555;
 }
+
+@media (max-width: 480px) {
+    .instructions,
+    .demo {
+        padding: 1rem;
+    }
+    #videoElement {
+        width: 100%;
+        height: auto;
+    }
+    #capture {
+        bottom: 4px;
+        font-size: 0.9rem;
+    }
+}
+
