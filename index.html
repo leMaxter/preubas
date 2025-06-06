@@ -1,107 +1,237 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Debug Cámara</title>
+  <title>Asistente de Maquillaje (ml5.faceApi)</title>
+
   <style>
-    body { font-family: sans-serif; text-align: center; margin-top: 1rem; }
-    video, canvas { 
-      border: 1px solid #666; 
-      margin-bottom: 0.5rem; 
-      width: 320px; 
-      height: 240px; 
-      background: #000;
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 1rem;
+      text-align: center;
     }
-    #result { font-weight: bold; margin-top: 0.5rem;}
+    .video-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    video, canvas {
+      width: 320px;
+      height: 240px;
+      background: #000;
+      border: 1px solid #666;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    #capture {
+      margin-top: 0.5rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #e91e63;
+      color: #fff;
+      border-radius: 4px;
+    }
+    #capture:hover {
+      background: #ad1457;
+    }
+    #result {
+      margin-top: 0.5rem;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <h2>Prueba de cámara y MediaPipe</h2>
-  <video id="videoElement" autoplay muted playsinline></video><br>
-  <canvas id="canvas" width="320" height="240"></canvas><br>
-  <button id="capture">Probar Detección</button>
-  <div id="result">⏳ Sin iniciar detección</div>
+  <header>
+    <h1>Asistente de Maquillaje</h1>
+    <p>Detecta tu rostro con ml5.faceApi y sugiere colores.</p>
+  </header>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <main>
+    <div class="video-wrapper">
+      <video id="videoElement" autoplay muted playsinline></video>
+      <canvas id="canvas"></canvas>
+    </div>
+    <br/>
+    <button id="capture">Analizar</button>
+    <div id="result">⏳ Cargando modelo...</div>
+  </main>
+
+  <footer>
+    <p>Proyecto basado en ml5.faceApi para detección facial.</p>
+  </footer>
+
+  <!-- 1) Carga ml5.js con face-api.js integrado -->
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
   <script>
+    // --------------- VARIABLES GLOBALES ---------------
     const video = document.getElementById("videoElement");
     const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
     const resultDiv = document.getElementById("result");
     const captureButton = document.getElementById("capture");
-    const ctx = canvas.getContext("2d");
 
-    let detectorReady = false;
-    let lastDetection = null;
+    let faceapi;                // instancia de ml5.faceApi
+    let deteccionActiva = false;
+    let lastBox = null;         // { _x, _y, _width, _height } de la última detección
 
-    // Paso A: Iniciar cámara y pintar directamente en el vídeo
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          video.play();
-          resultDiv.textContent = "📸 Cámara activa. Esperando modelo...";
-          iniciarMediaPipe();
-        };
-      })
-      .catch(err => {
-        console.error("Error accediendo a la cámara:", err);
-        resultDiv.textContent = "❌ No se pudo acceder a la cámara.";
-      });
-
-    // Paso B: Configurar MediaPipe Face Detection  
-    function iniciarMediaPipe() {
-      const faceDetector = new FaceDetection({
-        locateFile: (file) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
-      });
-      faceDetector.setOptions({
-        modelSelection: 0,
-        minDetectionConfidence: 0.3 // Umbral más bajo para pruebas
-      });
-
-      faceDetector.onResults(results => {
-        console.log("⏺ MediaPipe onResults:", results.detections);
-        if (results.detections.length > 0) {
-          // dibujar bounding box en el canvas
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const box = results.detections[0].boundingBox;
-          const x = (box.xCenter - box.width / 2) * canvas.width;
-          const y = (box.yCenter - box.height / 2) * canvas.height;
-          const w = box.width * canvas.width;
-          const h = box.height * canvas.height;
-          ctx.strokeStyle = "#00FF00";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x, y, w, h);
-          lastDetection = box;
-          detectorReady = true;
-          resultDiv.textContent = "✔️ Rostro detectado (consúltate consola).";
-        } else {
-          detectorReady = false;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          resultDiv.textContent = "⚠️ Sin detección en este frame.";
-        }
-      });
-
-      new Camera(video, {
-        onFrame: async () => {
-          await faceDetector.send({ image: video });
-        },
-        width: 320,
-        height: 240
-      }).start();
-      resultDiv.textContent = "🔄 MediaPipe iniciado (min 0.3 confiance).";
+    // --------------- 1) INICIAR CÁMARA ---------------
+    function iniciarCamara() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            video.play();
+            resultDiv.textContent = "🔄 Cámara activa, cargando modelo...";
+            iniciarFaceApi();
+          };
+        })
+        .catch(err => {
+          console.error("❌ No se pudo acceder a la cámara:", err);
+          resultDiv.textContent = "❌ Error al acceder a la cámara.";
+        });
     }
 
-    // Paso C: Botón para probar “¿detecta un rostro ahora?”  
-    captureButton.addEventListener("click", () => {
-      if (detectorReady) {
-        resultDiv.textContent = "🔍 Ya hay rostro detectado en el canvas.";
-      } else {
-        resultDiv.textContent = "⚠️ Aún no detecta tu rostro. Ajusta iluminacion/distancia.";
+    // --------------- 2) CARGAR ml5.faceApi ---------------
+    function iniciarFaceApi() {
+      const options = {
+        withLandmarks: false,
+        withDescriptors: false
+      };
+      faceapi = ml5.faceApi(video, options, () => {
+        resultDiv.textContent = "✔️ Modelo cargado. Detectando rostro...";
+        detectarContinuo();
+      });
+    }
+
+    // --------------- 3) DETECCIÓN CONTINUA ---------------
+    function detectarContinuo() {
+      faceapi.detect((err, results) => {
+        if (err) {
+          console.error("❌ Error en faceApi.detect():", err);
+          return;
+        }
+        // results es un array; si hay al menos un elemento, guardamos la caja
+        if (results && results.length > 0) {
+          const box = results[0].alignedRect._box;
+          lastBox = {
+            _x: box.x,
+            _y: box.y,
+            _width: box.width,
+            _height: box.height
+          };
+          if (!deteccionActiva) {
+            deteccionActiva = true;
+            resultDiv.textContent = "✔️ Rostro detectado. Pulsa Analizar.";
+          }
+        } else {
+          lastBox = null;
+          resultDiv.textContent = "⚠️ Sin rostro (muévete frente a la cámara).";
+        }
+        // Llamamos nuevamente, para evaluar el siguiente frame
+        requestAnimationFrame(detectarContinuo);
+      });
+    }
+
+    // --------------- 4) RGB → HSV ---------------
+    function rgbToHsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0, s = 0, v = max;
+      const d = max - min;
+      s = max === 0 ? 0 : d / max;
+      if (max !== min) {
+        switch (max) {
+          case r:
+            h = (g - b) / d + (g < b ? 6 : 0);
+            break;
+          case g:
+            h = (b - r) / d + 2;
+            break;
+          case b:
+            h = (r - g) / d + 4;
+            break;
+        }
+        h /= 6;
       }
+      return [h * 360, s * 100, v * 255];
+    }
+
+    // --------------- 5) PROCESAR Y CLASIFICAR ---------------
+    function procesarYClasificar() {
+      if (!lastBox) {
+        resultDiv.textContent = "⚠️ No se detecta rostro actualmente.";
+        return;
+      }
+      // Preparamos el canvas al tamaño del vídeo
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Dibujar el frame completo en el canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Obtener la caja en píxeles
+      const x = lastBox._x;
+      const y = lastBox._y;
+      const w = lastBox._width;
+      const h = lastBox._height;
+
+      // Dibujar rectángulo verde para depuración
+      ctx.strokeStyle = "#00FF00";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+
+      // Leer los pixeles dentro de la región del rostro
+      let data;
+      try {
+        data = ctx.getImageData(x, y, w, h).data;
+      } catch (e) {
+        console.error("❌ Error al leer la región facial:", e);
+        resultDiv.textContent = "❌ Error al leer la región facial.";
+        return;
+      }
+
+      // Calcular HSV promedio sobre esa región
+      let hSum = 0, sSum = 0, vSum = 0;
+      const pixelCount = data.length / 4;
+      for (let i = 0; i < data.length; i += 4) {
+        const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+        hSum += h;
+        sSum += s;
+        vSum += v;
+      }
+      const hAvg = hSum / pixelCount;
+      const sAvg = sSum / pixelCount;
+      const vAvg = vSum / pixelCount;
+
+      console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
+
+      // Clasificación simple (simulada KNN)
+      let label;
+      if (vAvg < 100) label = "Tonos intensos y delineados marcados.";
+      else if (hAvg < 100) label = "Tonos claros y base luminosa para iluminar tu rostro.";
+      else label = "Colores neutros y rubores suaves.";
+
+      resultDiv.innerHTML = `
+        <strong>Recomendación:</strong> ${label}<br/>
+        <small>HSV promedio: ${hAvg.toFixed(1)}°, ${sAvg.toFixed(1)}%, ${vAvg.toFixed(1)}</small>
+      `;
+    }
+
+    // --------------- 6) BOTÓN “ANALIZAR” ---------------
+    captureButton.addEventListener("click", () => {
+      resultDiv.textContent = "Analizando...";
+      procesarYClasificar();
+    });
+
+    // --------------- 7) ARRANCAR AL CARGAR ---------------
+    window.addEventListener("load", () => {
+      iniciarCamara();
     });
   </script>
 </body>
