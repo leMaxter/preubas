@@ -20,14 +20,12 @@ function iniciarFaceApi() {
     faceapi = ml5.faceApi(video, options, () => {
         console.log("📥 Modelo de FaceApi cargado");
 
-        // Verificamos que detecte algo desde el inicio
         faceapi.detect((err, results) => {
             if (err) {
                 console.error("❌ Error inicial detect:", err);
                 resultDiv.textContent = 'Error al inicializar FaceApi.';
                 return;
             }
-
             console.log("🧠 Primera detección completada:", results);
             faceApiReady = true;
             resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
@@ -98,17 +96,29 @@ function analizarImagen() {
         }
 
         const box = results[0].alignedRect?._box || results[0].detection?._box;
-
-        if (!box) {
-            console.warn("🚫 No se encontró ninguna región facial (box vacío)");
+        if (!box || box.width <= 0 || box.height <= 0) {
+            console.warn("🚫 Región de rostro no válida");
             resultDiv.textContent = 'No se encontró una región de rostro válida.';
             return;
         }
 
         const { x, y, width, height } = box;
+
+        // Ajusta el tamaño del canvas a lo que ve la cámara
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
         const context = canvas.getContext('2d');
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const data = context.getImageData(x, y, width, height).data;
+
+        let data;
+        try {
+            data = context.getImageData(x, y, width, height).data;
+        } catch (e) {
+            console.error("❌ Error al leer imagen:", e);
+            resultDiv.textContent = 'No se pudo leer la imagen del rostro.';
+            return;
+        }
 
         let hSum = 0, sSum = 0, vSum = 0;
         const pixelCount = data.length / 4;
@@ -128,7 +138,6 @@ function analizarImagen() {
         mostrarResultado(hAvg, sAvg, vAvg);
     });
 }
-
 
 function mostrarResultado(h, s, v) {
     classifier.classify([h, s, v])
