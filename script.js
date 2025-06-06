@@ -21,6 +21,11 @@ function iniciarFaceApi() {
 }
 
 function iniciarCamara() {
+    if (!window.isSecureContext) {
+        resultDiv.textContent = 'Para usar la cámara abre la página mediante HTTPS o desde localhost (p. ej. con "python3 -m http.server").';
+        return;
+    }
+
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
