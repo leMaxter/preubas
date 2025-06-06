@@ -3,29 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analizador de Maquillaje</title>
+    <title>Asistente de Maquillaje</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Analizador de Maquillaje</h1>
-        <p>Demostración educativa que emplea inteligencia artificial para sugerir maquillaje a partir de la imagen de tu rostro</p>
+    <header class="hero">
+        <h1>Asistente de Maquillaje</h1>
+        <p>Analiza tu rostro con IA para recomendarte los tonos que mejor te sientan.</p>
     </header>
-    <main>
-        <section>
-            <p>Permite el acceso a tu cámara para analizar el tono de tu piel mediante un pequeño modelo de IA. No almacenamos tus imágenes y la recomendación es orientativa.</p>
-        </section>
-        <section>
-            <video autoplay="true" id="videoElement"></video>
-            <div>
-                <button id="capture">Analizar</button>
-            </div>
-            <canvas id="canvas" width="300" height="225"></canvas>
-            <div id="result"></div>
-        </section>
+    <main class="container">
+        <p class="intro">Permite el acceso a tu cámara. No guardamos tus imágenes y la recomendación es orientativa.</p>
+        <div class="video-wrapper">
+            <video autoplay id="videoElement"></video>
+            <button id="capture">Analizar</button>
+        </div>
+        <canvas id="canvas" width="300" height="225"></canvas>
+        <div id="result"></div>
     </main>
     <footer>
-        <p>Proyecto de ejemplo basado en un clasificador de machine learning. Las sugerencias son orientativas.</p>
+        <p>Proyecto educativo basado en un clasificador KNN con ml5.js.</p>
     </footer>
     <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
     <script src="script.js"></script>
