@@ -1,0 +1,8 @@
+{
+  "name": "preubas",
+  "version": "1.0.0",
+  "description": "Demo para sugerir maquillaje utilizando la cámara",
+  "scripts": {
+    "test": "echo 'Sin pruebas definidas'"
+  }
+}

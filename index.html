@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Maquillaje</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Analizador de Maquillaje</h1>
+        <p>Demostración educativa de recomendación en base a la imagen de tu rostro</p>
+    </header>
+    <main>
+        <section>
+            <p>Permite el acceso a tu cámara para analizar el color promedio de tu rostro. La recomendación es orientativa y no almacenamos tus imágenes.</p>
+        </section>
+        <section>
+            <video autoplay="true" id="videoElement"></video>
+            <div>
+                <button id="capture">Analizar</button>
+            </div>
+            <canvas id="canvas" width="300" height="225"></canvas>
+            <div id="result"></div>
+        </section>
+    </main>
+    <footer>
+        <p>Proyecto de ejemplo. Las sugerencias se basan únicamente en el brillo medio detectado.</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
