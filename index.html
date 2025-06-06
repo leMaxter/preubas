@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asesor de Maquillaje AI Mejorado</title>
+  <title>Asesor de Maquillaje AI + API Makeup</title>
 
-  <!-- Fuente “Poppins” -->
+  <!-- Fuente “Poppins” para estilos atractivos -->
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet" />
 
@@ -130,6 +130,13 @@
     }
     #result ul li { margin-bottom: 0.4rem; }
     #result p { margin-bottom: 0.6rem; }
+    #result a {
+      color: var(--color-principal);
+      text-decoration: none;
+    }
+    #result a:hover {
+      text-decoration: underline;
+    }
     @media (max-width: 480px) {
       .contenedor { padding: 1rem; }
       h1 { font-size: 2rem; }
@@ -138,10 +145,10 @@
   </style>
 </head>
 <body>
-  <h1>Asesor de Maquillaje AI Mejorado</h1>
+  <h1>Asesor de Maquillaje AI + Primor en tiempo real</h1>
   <p class="subtitle">
-    Coloca tu rostro dentro del recuadro punteado y pulsa “Analizar”<br/>
-    para obtener una lectura de tono/subtono muy precisa y recomendaciones detalladas.
+    Coloca tu rostro dentro del recuadro punteado y pulsa “Analizar”.<br/>
+    Obtendrás, en tiempo real, enlaces y precios de productos Primor según tu tono/subtono.
   </p>
 
   <div class="contenedor">
@@ -159,40 +166,38 @@
   </div>
 
   <script>
-    // ==== Variables principales ====
+    // ==== 1) Variables principales ====
     const video = document.getElementById("videoElement");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const captureButton = document.getElementById("capture");
     const resultDiv = document.getElementById("result");
 
-    // ROI punteada: 12.5 % margen de cada lado → 75 %×75 % en el centro
+    // ROI punteada: 12.5 % margen → 75 %×75 % en el centro
     const ROI = { x: 0.125, y: 0.125, w: 0.75, h: 0.75 };
 
-    // Tres zonas relativas dentro de la ROI donde hay “alta probabilidad de piel”
+    // Tres zonas relativas dentro de la ROI donde muestreamos piel
     const ZONAS_PIEL = [
       [0.25, 0.10, 0.50, 0.15], // frente
       [0.15, 0.30, 0.30, 0.20], // mejilla izquierda
       [0.55, 0.30, 0.30, 0.20]  // mejilla derecha
     ];
 
-    // ==== 1) Iniciar la cámara (compatible con móvil) ====
+    // ==== 2) Iniciar cámara (compatible móvil) ====
     function iniciarCamara() {
       navigator.mediaDevices
         .getUserMedia({ video: { facingMode: "user" } })
         .then((stream) => {
           video.srcObject = stream;
-          video.onloadedmetadata = () => {
-            video.play();
-          };
+          video.onloadedmetadata = () => video.play();
         })
         .catch((err) => {
           console.error("❌ Error al acceder a la cámara:", err);
-          resultDiv.textContent = "Error al acceder a la cámara. Revisa permisos.";
+          resultDiv.textContent = "❌ No se pudo acceder a la cámara. Revisa permisos.";
         });
     }
 
-    // ==== 2) Filtrado de píxeles de piel en HSV ====
+    // ==== 3) Filtrado píxeles piel en HSV ====
     function rgbToHsv(r, g, b) {
       r /= 255; g /= 255; b /= 255;
       const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -212,15 +217,13 @@
       return (h >= 0 && h <= 50) && (s >= 10 && s <= 68) && (v >= 15 && v <= 100);
     }
 
-    // ==== 3) Conversión RGB → CIELAB ====
+    // ==== 4) Conversión RGB → CIELAB ====
     function pivotRgb(u) {
       return u > 0.04045 ? Math.pow((u + 0.055) / 1.055, 2.4) : u / 12.92;
     }
     function rgbToLab(r, g, b) {
-      let rn = r / 255, gn = g / 255, bn = b / 255;
-      const rLin = pivotRgb(rn);
-      const gLin = pivotRgb(gn);
-      const bLin = pivotRgb(bn);
+      const rn = r / 255, gn = g / 255, bn = b / 255;
+      const rLin = pivotRgb(rn), gLin = pivotRgb(gn), bLin = pivotRgb(bn);
       let X = rLin * 0.4124564 + gLin * 0.3575761 + bLin * 0.1804375;
       let Y = rLin * 0.2126729 + gLin * 0.7151522 + bLin * 0.0721750;
       let Z = rLin * 0.0193339 + gLin * 0.1191920 + bLin * 0.9503041;
@@ -230,30 +233,23 @@
         return t > 0.008856 ? Math.cbrt(t) : (7.787 * t) + (16 / 116);
       }
       const fx = f(X), fy = f(Y), fz = f(Z);
-      const L = (Y > 0.008856) ? (116 * fy - 16) : (903.3 * Y);
+      const L = Y > 0.008856 ? 116 * fy - 16 : 903.3 * Y;
       const a = 500 * (fx - fy);
       const bVal = 200 * (fy - fz);
       return [L, a, bVal];
     }
     function trimmedMean(arr) {
       if (arr.length === 0) return 0;
-      const copy = arr.slice().sort((a, b) => a - b);
-      const n = copy.length;
-      const low = Math.floor(n * 0.05), high = Math.ceil(n * 0.95);
-      const mid = copy.slice(low, high);
-      const sum = mid.reduce((x, y) => x + y, 0);
-      return sum / mid.length;
+      const sorted = arr.slice().sort((x, y) => x - y);
+      const low = Math.floor(sorted.length * 0.05);
+      const high = Math.ceil(sorted.length * 0.95);
+      const mid = sorted.slice(low, high);
+      return mid.reduce((sum, x) => sum + x, 0) / mid.length;
     }
-
-    /**
-     * Calcula L*,a*,b* promedio robusto de un canvas 100×100,
-     * filtrando solo píxeles que cumplan esPielHSV.
-     */
     function calcularLabPromedioRobusto(canvasPiel) {
       const ctx2 = canvasPiel.getContext("2d");
       const data = ctx2.getImageData(0, 0, canvasPiel.width, canvasPiel.height).data;
       const Ls = [], As = [], Bs = [];
-
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
         const [h, s, v] = rgbToHsv(r, g, b);
@@ -262,15 +258,15 @@
         Ls.push(L); As.push(a); Bs.push(bVal);
       }
       if (Ls.length === 0) return [0, 0, 0];
-      return [trimmedMean(Ls), trimmedMean(As), trimmedMean(Bs)];
+      return [ trimmedMean(Ls), trimmedMean(As), trimmedMean(Bs) ];
     }
 
-    // ==== 4) Extraer Lab global (3 zonas) ====
+    // ==== 5) Extraer Lab global de las 3 zonas ====
     function extraerLabGlobal() {
-      // Dibujar vídeo en canvas
+      // Dibujar vídeo en el canvas oculto
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // ROI absoluta
+      // ROI absoluta (pixeles)
       const roiX = ROI.x * canvas.width;
       const roiY = ROI.y * canvas.height;
       const roiW = ROI.w * canvas.width;
@@ -287,17 +283,16 @@
         tmp.width = tmp.height = 100;
         const tmpCtx = tmp.getContext("2d");
         tmpCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, 100, 100);
-        labs.push(calcularLabPromedioRobusto(tmp));
+        labs.push( calcularLabPromedioRobusto(tmp) );
       }
 
-      // Promedio de las 3 zonas
       const Lm = (labs[0][0] + labs[1][0] + labs[2][0]) / 3;
       const aM = (labs[0][1] + labs[1][1] + labs[2][1]) / 3;
       const bM = (labs[0][2] + labs[1][2] + labs[2][2]) / 3;
       return [Lm, aM, bM];
     }
 
-    // ==== 5) Clasificación fina 4×3 ====
+    // ==== 6) Clasificación 4×3 (tono + subtono) ====
     function clasificarTonoSubtonoFino([Lm, aM, bM]) {
       let tono;
       if (Lm >= 70) tono = "Muy claro";
@@ -313,172 +308,154 @@
       return { tono, subtono };
     }
 
-    // ==== 6) Recomendaciones + ejemplos de productos ====
-    function sugerirMaquillajeFino(tono, subtono) {
-      const tabla = {
-        "Muy claro": {
-          Cálido: {
-            tipoBase: "Base ligera/Media con subtono dorado",
-            ejemplos: {
-              base: "Maybelline Fit Me Matte #110 Porcelain (cálido)",
-              sombras: "Too Faced Peach Palette (melocotón claro)",
-              rubor: "NARS \"Orgasm\" (peach rosado)",
-              labial: "MAC \"Peachstock\" (peach clarito)"
-            },
-            consejo: "Ilumina pómulos con champagne, aplica base en capas ligeras."
-          },
-          Neutro: {
-            tipoBase: "Base ligera neutra",
-            ejemplos: {
-              base: "Estee Lauder Double Wear Nude #1N0 (neutro)",
-              sombras: "Urban Decay Naked Basics Palette (nude neutro)",
-              rubor: "Tarte \"Dollface\" (rosa neutro)",
-              labial: "Charlotte Tilbury \"Pillow Talk\" (nude rosado neutro)"
-            },
-            consejo: "Usa primer luminoso y rubor rosado muy sutil."
-          },
-          Frío: {
-            tipoBase: "Base ligera con subtono rosado",
-            ejemplos: {
-              base: "MAC Studio Fix Fluid NW15 (frío)",
-              sombras: "Anastasia Norvina Palette (rosados fríos)",
-              rubor: "NARS \"Missing\" (rosa frío baby)",
-              labial: "Revlon \"Pink Pout\" (rosa frío suave)"
-            },
-            consejo: "Iluminador grisáceo en arco de ceja, sombras lavanda."
-          }
-        },
-        "Claro–Medio": {
-          Cálido: {
-            tipoBase: "Base Media con matiz dorado",
-            ejemplos: {
-              base: "Fenty #150 (cálido)",
-              sombras: "Natasha Denona Bronze Palette (cobre medio)",
-              rubor: "Tarte \"Captivating\" (coral medio)",
-              labial: "MAC \"Lady Danger\" (naranja medio)"
-            },
-            consejo: "Bronzer cálido debajo de pómulos, iluminador dorado suave."
-          },
-          Neutro: {
-            tipoBase: "Base Media neutra",
-            ejemplos: {
-              base: "Lancôme Teint Idole #03 Buff (neutro)",
-              sombras: "Too Faced Natural Eyes (nude/marrones claros)",
-              rubor: "NARS \"Dolce Vita\" (rosa neutro)",
-              labial: "Maybelline \"Seductress\" (rosa neutro)"
-            },
-            consejo: "Polvos translúcidos, contorno suave en mejillas."
-          },
-          Frío: {
-            tipoBase: "Base Media con matiz rosado",
-            ejemplos: {
-              base: "MAC NW15 (frío–medio)",
-              sombras: "Huda Rose Gold Palette (rosados fríos)",
-              rubor: "Milani \"Dolce Pink\" (rosado neutro frío)",
-              labial: "MAC \"Twig\" (rosa ciruela frío)"
-            },
-            consejo: "Difumina primero un mauve gris, luego saturar con ciruela."
-          }
-        },
-        "Medio–Oscuro": {
-          Cálido: {
-            tipoBase: "Media–Alta cobertura, subtono dorado",
-            ejemplos: {
-              base: "Fenty #230 (cálido)",
-              sombras: "Morphe 35O2 (bronces profundos)",
-              rubor: "Bobbi Brown \"Desert Pink\" (terracota medio)",
-              labial: "Fenty \"Uncensored\" (rojo cálido medio)"
-            },
-            consejo: "Contorno con bronzer cálido mate, iluminador dorado en pómulos."
-          },
-          Neutro: {
-            tipoBase: "Media–Alta cobertura neutra",
-            ejemplos: {
-              base: "MAC NC42 (neutro)",
-              sombras: "Urban Decay Naked Heat (neutros oscuros)",
-              rubor: "NARS \"Deep Throat\" (rosa terroso)",
-              labial: "Charlotte \"Bond Girl\" (nude medio neutro)"
-            },
-            consejo: "Contorno suave bajo pómulos, mezclar marrón oscuro mate y taupe."
-          },
-          Frío: {
-            tipoBase: "Media–Alta cobertura, subtono rosado",
-            ejemplos: {
-              base: "Fenty #260 (frío)",
-              sombras: "Huda Mercury Retrograde (ciruela/azul fríos)",
-              rubor: "NARS \"Sin\" (rosado ciruela frío)",
-              labial: "MAC \"Diva\" (borgoña frío)"
-            },
-            consejo: "Delineado negro suave, sombra gris carbón ahumado."
-          }
-        },
-        "Muy oscuro": {
-          Cálido: {
-            tipoBase: "Alta cobertura, subtono dorado oscuro",
-            ejemplos: {
-              base: "Fenty #420 (cálido profundo)",
-              sombras: "Huda Desert Dusk (bronces intensos)",
-              rubor: "Fenty \"Hibiscus\" (naranja intenso)",
-              labial: "MAC \"Fixed on Drama\" (borgoña cálido)"
-            },
-            consejo: "Contorno con bronzer mate oscuro, iluminador dorado intenso."
-          },
-          Neutro: {
-            tipoBase: "Alta cobertura neutra profunda",
-            ejemplos: {
-              base: "MAC NC50 (neutro oscuro)",
-              sombras: "Urban Decay Naked Ultimate Basics (neutros profundos)",
-              rubor: "NARS \"Taos\" (rojo terroso profundo)",
-              labial: "Charlotte \"Dark Model\" (marrón chocolate neutro)"
-            },
-            consejo: "Iluminador neutro no demasiado dorado, contorno marcado."
-          },
-          Frío: {
-            tipoBase: "Alta cobertura, subtono rosado profundo",
-            ejemplos: {
-              base: "Fenty #490 (frío profundo)",
-              sombras: "Urban Decay Naked Smoky (ciruelas fríos)",
-              rubor: "Make Up For Ever \"Poison\" (vino frío)",
-              labial: "MAC \"Underworld\" (morado casi negro)"
-            },
-            consejo: "Delineado negro intenso, iluminador plateado en pómulos."
-          }
+    // ==== 7) Función que, según categoría, consulta Makeup API y filtra en tiempo real ====
+    async function fetchProductos(tipo, subtono) {
+      // Construimos la URL base según el tipo de producto
+      // (foundation, eyeshadow, blush, lipstick)
+      const url = `https://makeup-api.herokuapp.com/api/v1/products.json?product_type=${tipo}`;
+
+      try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        // Filtrado adicional según subtono (opcional):
+        // - Para 'Cálido', incluimos aquellos productos cuyas "product_colors" contengan palabras cálidas:
+        //    ["warm","red","orange","coral","peach","bronze","copper","gold"]
+        // - Para 'Frío', buscamos ["cool","blue","purple","mauve","berry","violet","plum","rose"]
+        // - Para 'Neutro', devolvemos los primeros N sin filtrar
+        const keywords = {
+          "Cálido": ["warm","red","orange","coral","peach","bronze","copper","gold"],
+          "Frío": ["cool","blue","purple","mauve","berry","violet","plum","rose"],
+          "Neutro": []
+        };
+
+        // Si no hay keywords (Neutro), devolvemos los primeros 5
+        if (subtono === "Neutro") {
+          return data.slice(0, 5);
         }
-      };
 
-      return tabla[tono][subtono];
+        // De otro modo filtramos por color
+        const filtrados = data.filter(prod => {
+          if (!prod.product_colors || !Array.isArray(prod.product_colors)) return false;
+          // Revisar cada color del producto
+          return prod.product_colors.some(colObj => {
+            const nombreColor = (colObj.colour_name || "").toLowerCase();
+            return keywords[subtono].some(kw => nombreColor.includes(kw));
+          });
+        });
+
+        // Si no alcanza suficientes productos, devolvemos primeros 5 de la lista original
+        if (filtrados.length < 3) return data.slice(0, 5);
+        return filtrados.slice(0, 5);
+      } catch (e) {
+        console.error(`Error fetch ${tipo}:`, e);
+        return [];
+      }
     }
 
-    // ==== 7) Función principal “muy precisa” ====
-    function procesarColorMuyPreciso() {
-      resultDiv.textContent = "🔄 Analizando color de piel (preciso)...";
-      const [Lm, aM, bM] = extraerLabGlobal();
-      const { tono, subtono } = clasificarTonoSubtonoFino([Lm, aM, bM]);
-      const rec = sugerirMaquillajeFino(tono, subtono);
-
+    // ==== 8) Después de clasificar, buscar productos para cada categoría ====
+    async function recomendarDesdeAPI(tono, subtono) {
       resultDiv.innerHTML = `
-        <h3>Resultados precisos</h3>
-        <p><strong>Tono de piel:</strong> ${tono} (L* = ${Lm.toFixed(1)})</p>
-        <p><strong>Subtono:</strong> ${subtono} (a* = ${aM.toFixed(1)}, b* = ${bM.toFixed(1)})</p>
-        <hr>
-        <h4>Recomendación detallada</h4>
-        <p><em>Base sugerida:</em> ${rec.tipoBase}</p>
-        <ul>
-          <li><strong>Ejemplo de base:</strong> ${rec.ejemplos.base}</li>
-          <li><strong>Ejemplo de paleta sombras:</strong> ${rec.ejemplos.sombras}</li>
-          <li><strong>Ejemplo rubor:</strong> ${rec.ejemplos.rubor}</li>
-          <li><strong>Ejemplo labial:</strong> ${rec.ejemplos.labial}</li>
-        </ul>
-        <p><em>Consejo:</em> ${rec.consejo}</p>
+        <h3>Buscando productos en tiempo real para:</h3>
+        <p><strong>Tono:</strong> ${tono} | <strong>Subtono:</strong> ${subtono}</p>
+        <p>Esto puede tardar unos segundos...</p>
       `;
+
+      // Categorías que queremos (producto_type en la API):
+      // foundation (bases), eyeshadow (sombras), blush (rubor), lipstick (labial)
+      const [foundations, eyeshadows, blushes, lipsticks] = await Promise.all([
+        fetchProductos("foundation", subtono),
+        fetchProductos("eyeshadow", subtono),
+        fetchProductos("blush", subtono),
+        fetchProductos("lipstick", subtono)
+      ]);
+
+      // Mostrar resultados
+      let html = `
+        <h3>Resultados Precisión AI:</h3>
+        <p><strong>Tono:</strong> ${tono} | <strong>Subtono:</strong> ${subtono}</p>
+        <hr>
+        <h4>Bases recomendadas:</h4>
+        <ul>
+      `;
+      if (foundations.length === 0) {
+        html += `<li>No se encontraron bases.</li>`;
+      } else {
+        foundations.forEach(p => {
+          html += `
+            <li>
+              <a href="${p.product_link}" target="_blank">${p.name}</a>
+              – ${p.price_sign || "€"}${p.price}
+            </li>
+          `;
+        });
+      }
+      html += `</ul>`;
+
+      html += `<h4>Sombras recomendadas:</h4><ul>`;
+      if (eyeshadows.length === 0) {
+        html += `<li>No se encontraron sombras.</li>`;
+      } else {
+        eyeshadows.forEach(p => {
+          html += `
+            <li>
+              <a href="${p.product_link}" target="_blank">${p.name}</a>
+              – ${p.price_sign || "€"}${p.price}
+            </li>
+          `;
+        });
+      }
+      html += `</ul>`;
+
+      html += `<h4>Rubores recomendados:</h4><ul>`;
+      if (blushes.length === 0) {
+        html += `<li>No se encontraron rubores.</li>`;
+      } else {
+        blushes.forEach(p => {
+          html += `
+            <li>
+              <a href="${p.product_link}" target="_blank">${p.name}</a>
+              – ${p.price_sign || "€"}${p.price}
+            </li>
+          `;
+        });
+      }
+      html += `</ul>`;
+
+      html += `<h4>Labiales recomendados:</h4><ul>`;
+      if (lipsticks.length === 0) {
+        html += `<li>No se encontraron labiales.</li>`;
+      } else {
+        lipsticks.forEach(p => {
+          html += `
+            <li>
+              <a href="${p.product_link}" target="_blank">${p.name}</a>
+              – ${p.price_sign || "€"}${p.price}
+            </li>
+          `;
+        });
+      }
+      html += `</ul>`;
+
+      resultDiv.innerHTML = html;
     }
 
-    // ==== 8) Evento al pulsar “Analizar” ====
-    captureButton.addEventListener("click", procesarColorMuyPreciso);
+    // ==== 9) Función principal al pulsar “Analizar” ====
+    async function procesarYLlamarAPI() {
+      resultDiv.textContent = "🔄 Analizando color de piel...";
+      // Paso 1: extraer L*, a*, b* global
+      const [Lm, aM, bM] = extraerLabGlobal();
+      // Paso 2: clasificar tono/subtono
+      const { tono, subtono } = clasificarTonoSubtonoFino([Lm, aM, bM]);
+      // Paso 3: usar la API para obtener productos
+      await recomendarDesdeAPI(tono, subtono);
+    }
 
-    // Al cargar la página, arrancamos la cámara
+    // ==== 10) Enlazar botón y arrancar cámara ====
+    captureButton.addEventListener("click", procesarYLlamarAPI);
     window.addEventListener("load", iniciarCamara);
   </script>
 </body>
 </html>
+
 
