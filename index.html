@@ -1,56 +1,63 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asistente de Maquillaje</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Asistente de Maquillaje</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <header class="hero">
-        <h1>Asistente de Maquillaje</h1>
-        <p>Analiza tu rostro con ayuda de la inteligencia artificial para descubrir qué tonos te favorecen.</p>
-    </header>
-    <main class="container">
-        <section class="instructions">
-           <h2>Paso a paso</h2>
-            <ol>
-                <li>Abre la página desde un servidor local o HTTPS para que la cámara funcione.</li>
-                <li>Permite el acceso a la cámara.</li>
-                <li>Pulsa <strong>Analizar</strong> para capturar la imagen.</li>
-                <li>El sistema detectará tu rostro y evaluará su color.</li>
-                <li>Revisa la recomendación de maquillaje en pantalla.</li>
-            </ol>
-            <p class="disclaimer">No almacenamos tus fotos. La sugerencia es únicamente orientativa.</p>
-        </section>
-        <section class="demo">
-            <div class="video-wrapper">
-                <video autoplay id="videoElement"></video>
-                <button id="capture">Analizar</button>
-            </div>
-            <canvas id="canvas" width="300" height="225"></canvas>
-            <div id="result"></div>
-        </section>
-    </main>
-    <footer>
-        <p>Proyecto educativo basado en un clasificador KNN y detección facial con FaceApi de ml5.js.</p>
-    </footer>
-    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
-    <script src="script.js"></script>
-    <script>
+  <header class="hero">
+    <h1>Asistente de Maquillaje</h1>
+    <p>Analiza tu rostro con ayuda de la inteligencia artificial para descubrir qué tonos te favorecen.</p>
+  </header>
+  <main class="container">
+    <section class="instructions">
+      <h2>Paso a paso</h2>
+      <ol>
+        <li>Abre la página desde un servidor local o HTTPS para que la cámara funcione.</li>
+        <li>Permite el acceso a la cámara.</li>
+        <li>Pulsa <strong>Analizar</strong> para capturar la imagen.</li>
+        <li>El sistema detectará tu rostro y evaluará su color.</li>
+        <li>Revisa la recomendación de maquillaje en pantalla.</li>
+      </ol>
+      <p class="disclaimer">No almacenamos tus fotos. La sugerencia es únicamente orientativa.</p>
+    </section>
+    <section class="demo">
+      <div class="video-wrapper">
+        <video autoplay id="videoElement" playsinline muted></video>
+        <button id="capture">Analizar</button>
+      </div>
+      <canvas id="canvas" width="300" height="225"></canvas>
+      <div id="result"></div>
+    </section>
+  </main>
+  <footer>
+    <p>Proyecto educativo usando detección facial con MediaPipe.</p>
+  </footer>
+
+  <!-- ✅ MediaPipe y utilidades -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+  <!-- ✅ Tu script corregido -->
+  <script src="script.js"></script>
+
+  <!-- 🛠 Consola visible en móvil (opcional) -->
+  <script>
     const originalLog = console.log;
     const logBox = document.createElement('div');
     logBox.style = 'background:#000; color:#0f0; font-size:12px; padding:10px; max-height:150px; overflow:auto;';
     document.body.appendChild(logBox);
 
     console.log = function (...args) {
-        logBox.innerHTML += args.join(' ') + '<br>';
-        originalLog.apply(console, args);
+      logBox.innerHTML += args.join(' ') + '<br>';
+      originalLog.apply(console, args);
     };
-</script>
-
+  </script>
 </body>
 </html>
+
