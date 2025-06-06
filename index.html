@@ -2,12 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Asistente de Maquillaje</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 </head>
 <body>
   <header class="hero">
@@ -28,7 +26,7 @@
     </section>
     <section class="demo">
       <div class="video-wrapper">
-        <video autoplay id="videoElement" playsinline muted></video>
+        <video id="videoElement" autoplay muted playsinline></video>
         <button id="capture">Analizar</button>
       </div>
       <canvas id="canvas" width="300" height="225"></canvas>
@@ -36,28 +34,12 @@
     </section>
   </main>
   <footer>
-    <p>Proyecto educativo usando detección facial con MediaPipe.</p>
+    <p>Proyecto educativo basado en un clasificador KNN y detección facial con MediaPipe.</p>
   </footer>
 
-  <!-- ✅ MediaPipe y utilidades -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
-  <!-- ✅ Tu script corregido -->
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
   <script src="script.js"></script>
-
-  <!-- 🛠 Consola visible en móvil (opcional) -->
-  <script>
-    const originalLog = console.log;
-    const logBox = document.createElement('div');
-    logBox.style = 'background:#000; color:#0f0; font-size:12px; padding:10px; max-height:150px; overflow:auto;';
-    document.body.appendChild(logBox);
-
-    console.log = function (...args) {
-      logBox.innerHTML += args.join(' ') + '<br>';
-      originalLog.apply(console, args);
-    };
-  </script>
 </body>
 </html>
 
