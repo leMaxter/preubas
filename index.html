@@ -1,238 +1,336 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asistente de Maquillaje (ml5.faceApi)</title>
-
+  <title>Detección de Color de Piel para Maquillaje</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      margin: 1rem;
-      text-align: center;
-    }
-    .video-wrapper {
-      position: relative;
-      display: inline-block;
-    }
-    video, canvas {
-      width: 320px;
-      height: 240px;
-      background: #000;
-      border: 1px solid #666;
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-    }
-    #capture {
-      margin-top: 0.5rem;
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      border: none;
-      background: #e91e63;
-      color: #fff;
-      border-radius: 4px;
-    }
-    #capture:hover {
-      background: #ad1457;
-    }
-    #result {
-      margin-top: 0.5rem;
-      font-weight: bold;
-    }
+    body { font-family: sans-serif; padding: 1em; }
+    video, canvas { border: 1px solid #ccc; }
+    #result { margin-top: 1em; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Asistente de Maquillaje</h1>
-    <p>Detecta tu rostro con ml5.faceApi y sugiere colores.</p>
-  </header>
+  <h1>Asesor de Maquillaje: Detección de Color de Piel</h1>
+  <video id="videoElement" width="320" height="240" autoplay muted></video>
+  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+  <br/>
+  <button id="capture">Analizar</button>
+  <div id="result">Esperando detección de rostro...</div>
 
-  <main>
-    <div class="video-wrapper">
-      <video id="videoElement" autoplay muted playsinline></video>
-      <canvas id="canvas"></canvas>
-    </div>
-    <br/>
-    <button id="capture">Analizar</button>
-    <div id="result">⏳ Cargando modelo...</div>
-  </main>
-
-  <footer>
-    <p>Proyecto basado en ml5.faceApi para detección facial.</p>
-  </footer>
-
-  <!-- 1) Carga ml5.js con face-api.js integrado -->
-  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
   <script>
-    // --------------- VARIABLES GLOBALES ---------------
+    // --- Variables globales ---
     const video = document.getElementById("videoElement");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    const resultDiv = document.getElementById("result");
     const captureButton = document.getElementById("capture");
+    const resultDiv = document.getElementById("result");
 
-    let faceapi;                // instancia de ml5.faceApi
+    let lastBox = null;
     let deteccionActiva = false;
-    let lastBox = null;         // { _x, _y, _width, _height } de la última detección
 
-    // --------------- 1) INICIAR CÁMARA ---------------
+    // Canvas auxiliar para muestrear piel (100×100 px)
+    const canvasPiel = document.createElement("canvas");
+    canvasPiel.width = canvasPiel.height = 100;
+
+    // --- 1) Configurar Face Detection ---
+    const faceDetector = new FaceDetection({
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
+    });
+    faceDetector.setOptions({
+      modelSelection: 0,
+      minDetectionConfidence: 0.4,
+    });
+    faceDetector.onResults((results) => {
+      if (results.detections.length > 0) {
+        lastBox = results.detections[0].boundingBox;
+        if (!deteccionActiva) {
+          deteccionActiva = true;
+          resultDiv.textContent = "✔️ Rostro detectado. Pulsa ‘Analizar’ cuando quieras.";
+        }
+      } else {
+        lastBox = null;
+        if (deteccionActiva) {
+          deteccionActiva = false;
+          resultDiv.textContent = "⚠️ No se detecta rostro.";
+        }
+      }
+    });
+
+    // --- 2) Iniciar cámara + MediaPipe loop ---
     function iniciarCamara() {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
           video.srcObject = stream;
           video.onloadedmetadata = () => {
             video.play();
-            resultDiv.textContent = "🔄 Cámara activa, cargando modelo...";
-            iniciarFaceApi();
+            new Camera(video, {
+              onFrame: async () => {
+                await faceDetector.send({ image: video });
+              },
+              width: 320,
+              height: 240,
+            }).start();
           };
         })
-        .catch(err => {
-          console.error("❌ No se pudo acceder a la cámara:", err);
-          resultDiv.textContent = "❌ Error al acceder a la cámara.";
+        .catch((err) => {
+          console.error("Error al acceder a la cámara:", err);
+          resultDiv.textContent = "❌ No se pudo acceder a la cámara.";
         });
     }
 
-    // --------------- 2) CARGAR ml5.faceApi ---------------
-    function iniciarFaceApi() {
-      const options = {
-        withLandmarks: false,
-        withDescriptors: false
-      };
-      faceapi = ml5.faceApi(video, options, () => {
-        resultDiv.textContent = "✔️ Modelo cargado. Detectando rostro...";
-        detectarContinuo();
-      });
+    // --- 3) Funciones para conversión RGB → CIELAB ---
+    function pivotRgb(u) {
+      return u > 0.04045 ? Math.pow((u + 0.055) / 1.055, 2.4) : u / 12.92;
     }
-
-    // --------------- 3) DETECCIÓN CONTINUA ---------------
-    function detectarContinuo() {
-      faceapi.detect((err, results) => {
-        if (err) {
-          console.error("❌ Error en faceApi.detect():", err);
-          return;
-        }
-        // results es un array; si hay al menos un elemento, guardamos la caja
-        if (results && results.length > 0) {
-          const box = results[0].alignedRect._box;
-          lastBox = {
-            _x: box.x,
-            _y: box.y,
-            _width: box.width,
-            _height: box.height
-          };
-          if (!deteccionActiva) {
-            deteccionActiva = true;
-            resultDiv.textContent = "✔️ Rostro detectado. Pulsa Analizar.";
-          }
-        } else {
-          lastBox = null;
-          resultDiv.textContent = "⚠️ Sin rostro (muévete frente a la cámara).";
-        }
-        // Llamamos nuevamente, para evaluar el siguiente frame
-        requestAnimationFrame(detectarContinuo);
-      });
-    }
-
-    // --------------- 4) RGB → HSV ---------------
-    function rgbToHsv(r, g, b) {
-      r /= 255; g /= 255; b /= 255;
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      let h = 0, s = 0, v = max;
-      const d = max - min;
-      s = max === 0 ? 0 : d / max;
-      if (max !== min) {
-        switch (max) {
-          case r:
-            h = (g - b) / d + (g < b ? 6 : 0);
-            break;
-          case g:
-            h = (b - r) / d + 2;
-            break;
-          case b:
-            h = (r - g) / d + 4;
-            break;
-        }
-        h /= 6;
+    function rgbToLab(r, g, b) {
+      let rn = r / 255, gn = g / 255, bn = b / 255;
+      const rLin = pivotRgb(rn);
+      const gLin = pivotRgb(gn);
+      const bLin = pivotRgb(bn);
+      let X = rLin * 0.4124564 + gLin * 0.3575761 + bLin * 0.1804375;
+      let Y = rLin * 0.2126729 + gLin * 0.7151522 + bLin * 0.0721750;
+      let Z = rLin * 0.0193339 + gLin * 0.1191920 + bLin * 0.9503041;
+      const Xn = 0.95047, Yn = 1.00000, Zn = 1.08883;
+      X /= Xn; Y /= Yn; Z /= Zn;
+      function f(t) {
+        return t > 0.008856 ? Math.cbrt(t) : (7.787 * t) + (16 / 116);
       }
-      return [h * 360, s * 100, v * 255];
+      const fx = f(X), fy = f(Y), fz = f(Z);
+      const L = (Y > 0.008856) ? (116 * fy - 16) : (903.3 * Y);
+      const a = 500 * (fx - fy);
+      const bVal = 200 * (fy - fz);
+      return [L, a, bVal];
+    }
+    function calcularLabPromedio(canvasPiel) {
+      const ctx2 = canvasPiel.getContext("2d");
+      const imgData = ctx2.getImageData(0, 0, canvasPiel.width, canvasPiel.height).data;
+      let sumL = 0, sumA = 0, sumB = 0;
+      const totalPx = imgData.length / 4;
+      for (let i = 0; i < imgData.length; i += 4) {
+        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+        const [L, a, bVal] = rgbToLab(r, g, b);
+        sumL += L;
+        sumA += a;
+        sumB += bVal;
+      }
+      return [sumL / totalPx, sumA / totalPx, sumB / totalPx];
     }
 
-    // --------------- 5) PROCESAR Y CLASIFICAR ---------------
-    function procesarYClasificar() {
+    // --- 4) Extraer región de mejilla ---
+    function extraerRegionMejilla() {
+      if (!lastBox) return null;
+      const { xCenter, yCenter, width: wNorm, height: hNorm } = lastBox;
+      const boxW = wNorm * canvas.width;
+      const boxH = hNorm * canvas.height;
+      const boxX = (xCenter - wNorm / 2) * canvas.width;
+      const boxY = (yCenter - hNorm / 2) * canvas.height;
+      const subW = boxW / 2;
+      const subH = boxH / 2;
+      const subX = boxX + boxW / 2;
+      const subY = boxY + boxH / 2;
+      const sx = Math.max(0, subX);
+      const sy = Math.max(0, subY);
+      const sw = Math.min(subW, canvas.width - sx);
+      const sh = Math.min(subH, canvas.height - sy);
+      const ctx2 = canvasPiel.getContext("2d");
+      ctx2.clearRect(0, 0, canvasPiel.width, canvasPiel.height);
+      ctx2.drawImage(canvas, sx, sy, sw, sh, 0, 0, 100, 100);
+      return canvasPiel;
+    }
+
+    // --- 5) Clasificar tono/subtono ---
+    function clasificarTonoSubtono([Lm, aM, bM]) {
+      let tono;
+      if (Lm >= 75) tono = "Muy claro";
+      else if (Lm >= 60) tono = "Claro";
+      else if (Lm >= 45) tono = "Medio";
+      else if (Lm >= 30) tono = "Oscuro";
+      else tono = "Muy oscuro";
+
+      let subtono;
+      if (aM >= 5 && bM >= 5) subtono = "Cálido";
+      else if (aM <= -5 && bM <= -5) subtono = "Frío";
+      else subtono = "Neutro";
+
+      return { tono, subtono };
+    }
+
+    // --- 6) Sugerencias de maquillaje ---
+    function sugerirMaquillaje(tono, subtono) {
+      const recomendaciones = {
+        "Muy claro": {
+          Cálido: {
+            tipoBase: "Base ligera con subtono dorado",
+            paletaSombras: "Sombras en tonos durazno y dorado claro",
+            rubor: "Rubor en tono melocotón suave",
+            labial: "Labial coral claro",
+            consejo: "Usa iluminador en pómulos para realzar tu luminosidad."
+          },
+          Frío: {
+            tipoBase: "Base ligera con subtono rosado",
+            paletaSombras: "Sombras en tonos rosa pálido y gris perla",
+            rubor: "Rubor rosa frío suave",
+            labial: "Labial rosa empolvado",
+            consejo: "Evita tonos demasiado amarillos; resalta con rubor frío."
+          },
+          Neutro: {
+            tipoBase: "Base ligera neutra",
+            paletaSombras: "Sombras en tonos beige y champán",
+            rubor: "Rubor color rosa natural",
+            labial: "Labial nude rosado",
+            consejo: "Un bronzer suave puede dar calidez sin exagerar."
+          }
+        },
+        "Claro": {
+          Cálido: {
+            tipoBase: "Base media con matiz dorado",
+            paletaSombras: "Sombras cálidas (naranja quemado, cobre)",
+            rubor: "Rubor coral medio",
+            labial: "Labial coral intenso",
+            consejo: "Opta por polvos translúcidos para controlar brillos."
+          },
+          Frío: {
+            tipoBase: "Base media con matiz rosado",
+            paletaSombras: "Sombras en tonos lavanda y taupe frío",
+            rubor: "Rubor rosa medio",
+            labial: "Labial berry ligero",
+            consejo: "Sombras frías contrastan muy bien en piel clara."
+          },
+          Neutro: {
+            tipoBase: "Base media neutra",
+            paletaSombras: "Sombras nude y marrones claros",
+            rubor: "Rubor rosa-neutro",
+            labial: "Labial nude equilibrado",
+            consejo: "Un contorno suave en mejillas da definición."
+          }
+        },
+        "Medio": {
+          Cálido: {
+            tipoBase: "Base media con subtono dorado intenso",
+            paletaSombras: "Sombras tierra, oro antiguo, bronce",
+            rubor: "Rubor terracota",
+            labial: "Labial naranja quemado",
+            consejo: "Ilumina con dorado bajo ceja y pómulo."
+          },
+          Frío: {
+            tipoBase: "Base media con subtono rosado neutro",
+            paletaSombras: "Sombras grises, mauve y ciruela suave",
+            rubor: "Rubor rosado intenso",
+            labial: "Labial frambuesa",
+            consejo: "Sombras ahumadas grises dan profundidad."
+          },
+          Neutro: {
+            tipoBase: "Base media neutra",
+            paletaSombras: "Sombras nude-rosadas y café suave",
+            rubor: "Rubor rosa-terroso",
+            labial: "Labial nude con toque cálido",
+            consejo: "Bronzer suave define sin romper neutralidad."
+          }
+        },
+        "Oscuro": {
+          Cálido: {
+            tipoBase: "Base media-alta con subtono dorado oscuro",
+            paletaSombras: "Sombras cobre, oro viejo, bronce intenso",
+            rubor: "Rubor terracota profundo",
+            labial: "Labial rojo anaranjado intenso",
+            consejo: "Iluminador dorado en pómulos realza tu piel."
+          },
+          Frío: {
+            tipoBase: "Base media-alta con subtono rosado oscuro",
+            paletaSombras: "Sombras berenjena, gris oscuro, azul petróleo",
+            rubor: "Rubor borgoña oscuro",
+            labial: "Labial vino",
+            consejo: "Sombras frías intensas resaltan en piel oscura."
+          },
+          Neutro: {
+            tipoBase: "Base media-alta neutra",
+            paletaSombras: "Sombras café profundo y taupe neutro",
+            rubor: "Rubor rosa-terroso profundo",
+            labial: "Labial nude-marrón medio",
+            consejo: "Contorno suave con bronzer mate define rasgos."
+          }
+        },
+        "Muy oscuro": {
+          Cálido: {
+            tipoBase: "Base alta con subtono dorado profundo",
+            paletaSombras: "Sombras cobre intenso y dorado oscuro",
+            rubor: "Rubor profundo color arcilla",
+            labial: "Labial borgoña cálido",
+            consejo: "Iluminador bronce en pómulos crea glow cálido."
+          },
+          Frío: {
+            tipoBase: "Base alta con subtono rosado profundo",
+            paletaSombras: "Sombras ciruela profundo y gris ahumado",
+            rubor: "Rubor rojo oscuro frío",
+            labial: "Labial morado intenso",
+            consejo: "Sombras frías aportan contraste espectacular."
+          },
+          Neutro: {
+            tipoBase: "Base alta neutra",
+            paletaSombras: "Sombras marrón oscuro y taupe profundo",
+            rubor: "Rubor vino-neutro",
+            labial: "Labial nude-marrón oscuro",
+            consejo: "Contorno y bronzer mate resaltan facciones."
+          }
+        }
+      };
+      return recomendaciones[tono][subtono];
+    }
+
+    // --- 7) Función principal de análisis ---
+    function procesarColorCara() {
       if (!lastBox) {
         resultDiv.textContent = "⚠️ No se detecta rostro actualmente.";
         return;
       }
-      // Preparamos el canvas al tamaño del vídeo
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      // Dibujar el frame completo en el canvas
+      // Dibujamos el vídeo en el canvas principal
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Obtener la caja en píxeles
-      const x = lastBox._x;
-      const y = lastBox._y;
-      const w = lastBox._width;
-      const h = lastBox._height;
-
-      // Dibujar rectángulo verde para depuración
-      ctx.strokeStyle = "#00FF00";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, w, h);
-
-      // Leer los pixeles dentro de la región del rostro
-      let data;
-      try {
-        data = ctx.getImageData(x, y, w, h).data;
-      } catch (e) {
-        console.error("❌ Error al leer la región facial:", e);
-        resultDiv.textContent = "❌ Error al leer la región facial.";
+      // Extraemos la región de mejilla
+      const regionPielCanvas = extraerRegionMejilla();
+      if (!regionPielCanvas) {
+        resultDiv.textContent = "❌ No se pudo extraer la región de la piel.";
         return;
       }
 
-      // Calcular HSV promedio sobre esa región
-      let hSum = 0, sSum = 0, vSum = 0;
-      const pixelCount = data.length / 4;
-      for (let i = 0; i < data.length; i += 4) {
-        const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
-        hSum += h;
-        sSum += s;
-        vSum += v;
-      }
-      const hAvg = hSum / pixelCount;
-      const sAvg = sSum / pixelCount;
-      const vAvg = vSum / pixelCount;
+      // Calculamos L*, a*, b* promedio
+      const [Lm, aM, bM] = calcularLabPromedio(regionPielCanvas);
 
-      console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
+      // Clasificamos
+      const { tono, subtono } = clasificarTonoSubtono([Lm, aM, bM]);
 
-      // Clasificación simple (simulada KNN)
-      let label;
-      if (vAvg < 100) label = "Tonos intensos y delineados marcados.";
-      else if (hAvg < 100) label = "Tonos claros y base luminosa para iluminar tu rostro.";
-      else label = "Colores neutros y rubores suaves.";
+      // Obtenemos recomendaciones
+      const rec = sugerirMaquillaje(tono, subtono);
 
+      // Mostramos resultado
       resultDiv.innerHTML = `
-        <strong>Recomendación:</strong> ${label}<br/>
-        <small>HSV promedio: ${hAvg.toFixed(1)}°, ${sAvg.toFixed(1)}%, ${vAvg.toFixed(1)}</small>
+        <h3>Resultados</h3>
+        <p><strong>Tono de piel:</strong> ${tono} (L* = ${Lm.toFixed(1)})</p>
+        <p><strong>Subtono:</strong> ${subtono} (a* = ${aM.toFixed(1)}, b* = ${bM.toFixed(1)})</p>
+        <hr>
+        <h4>Recomendación de maquillaje:</h4>
+        <ul>
+          <li><strong>Base:</strong> ${rec.tipoBase}</li>
+          <li><strong>Sombras:</strong> ${rec.paletaSombras}</li>
+          <li><strong>Rubor:</strong> ${rec.rubor}</li>
+          <li><strong>Labial:</strong> ${rec.labial}</li>
+        </ul>
+        <p><em>Consejo:</em> ${rec.consejo}</p>
       `;
     }
 
-    // --------------- 6) BOTÓN “ANALIZAR” ---------------
     captureButton.addEventListener("click", () => {
-      resultDiv.textContent = "Analizando...";
-      procesarYClasificar();
+      resultDiv.textContent = "🔄 Analizando color de piel...";
+      procesarColorCara();
     });
 
-    // --------------- 7) ARRANCAR AL CARGAR ---------------
-    window.addEventListener("load", () => {
-      iniciarCamara();
-    });
+    // Arrancamos todo al cargar la página
+    window.addEventListener("load", iniciarCamara);
   </script>
 </body>
 </html>
