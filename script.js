@@ -97,10 +97,9 @@ function procesarYClasificar() {
   `;
 }
 
-// 4) Configuramos MediaPipe Face Detection
-//    Fíjate que aquí usamos “FaceDetection.FaceDetector” (F mayúscula)
-const faceDetector = new FaceDetection.FaceDetector({
-  locateFile: (file) => 
+// 4) Configuramos MediaPipe Face Detection usando la clase correcta “FaceDetection”
+const faceDetector = new FaceDetection({
+  locateFile: (file) =>
     `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
 });
 faceDetector.setOptions({
