@@ -33,7 +33,8 @@ function iniciarCamara() {
 
 function iniciarDetector() {
   faceDetector = new FaceDetection.FaceDetection({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
+    locateFile: (file) =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
   });
 
   faceDetector.setOptions({
