@@ -1,27 +1,48 @@
+.hero h1,
+.hero p,
+main,
+footer {
+    margin: 0;
+}
+
 body {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Roboto', Arial, Helvetica, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #fff0f5;
+    background: linear-gradient(to bottom, #fff0f5, #ffe4f0);
     color: #333;
+    min-height: 100vh;
 }
+
 header.hero {
-    background-color: #e91e63;
+    background: linear-gradient(135deg, #e91e63, #ad1457);
     color: #fff;
-    padding: 2rem 0;
+    padding: 2.5rem 1rem;
     text-align: center;
 }
+
 main.container {
-    max-width: 620px;
+    max-width: 640px;
     margin: 2rem auto;
+    text-align: center;
+}
+
+.instructions,
+.demo {
     background: #fff;
     padding: 1.5rem;
+    border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border-radius: 4px;
-    text-align: center;
+    margin-bottom: 1.5rem;
 }
-.intro {
-    margin-bottom: 1rem;
+
+.instructions ol {
+    text-align: left;
+}
+.disclaimer {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 0.5rem;
 }
 .video-wrapper {
     position: relative;

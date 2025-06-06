@@ -12,5 +12,5 @@ La clasificación se realiza con un modelo KNN definido en la página utilizando
 
 ### Novedades
 
-- Interfaz renovada en tonos rosados para un aspecto más profesional.
+- Interfaz renovada en tonos rosados para un aspecto más profesional y secciones descriptivas.
 - El modelo ahora analiza el tono, saturación y brillo promedio de todo el rostro para afinar la recomendación de maquillaje.
