@@ -6,6 +6,34 @@
   <title>Asistente de Maquillaje</title>
   <link rel="stylesheet" href="style.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    /* Solo para depurar: dibujar el canvas encima del vídeo */
+    .video-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    #videoElement {
+      width: 320px;
+      height: 240px;
+      background: #000;
+    }
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 320px;
+      height: 240px;
+      pointer-events: none; /* no interfiera con el botón */
+    }
+    #capture {
+      margin-top: 8px;
+      display: block;
+    }
+    #result {
+      margin-top: 8px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
   <header class="hero">
@@ -27,18 +55,20 @@
     <section class="demo">
       <div class="video-wrapper">
         <video id="videoElement" autoplay muted playsinline></video>
-        <button id="capture">Analizar</button>
+        <canvas id="canvas" width="320" height="240"></canvas>
       </div>
-      <canvas id="canvas" width="300" height="225"></canvas>
-      <div id="result"></div>
+      <button id="capture">Analizar</button>
+      <div id="result">Esperando detección...</div>
     </section>
   </main>
   <footer>
     <p>Proyecto educativo basado en un clasificador KNN y detección facial con MediaPipe.</p>
   </footer>
 
+  <!-- Carga MediaPipe Face Detection y CameraUtils -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <!-- Tu script con la lógica de detección y clasificación -->
   <script src="script.js"></script>
 </body>
 </html>
