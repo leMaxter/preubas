@@ -3,29 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asesor de Maquillaje AI (Sin detección)</title>
+  <title>Asesor de Maquillaje AI Mejorado</title>
 
-  <!-- Fuente y estilos -->
+  <!-- Fuente “Poppins” -->
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet" />
 
   <style>
     :root {
       --color-fondo: #faf8f5;
-      --color-principal: #e48fb0;      /* Rosa maquillaje */
-      --color-secundario: #4a4a4a;     /* Gris oscuro para texto */
-      --color-acento: #f2c1d1;         /* Rosa claro */
-      --color-card: #ffffff;          /* Blanco para tarjetas */
+      --color-principal: #e48fb0;
+      --color-secundario: #4a4a4a;
+      --color-acento: #f2c1d1;
+      --color-card: #ffffff;
       --sombra-card: rgba(0, 0, 0, 0.1);
       --radios-bordes: 12px;
       --font-heading: 'Poppins', sans-serif;
       --font-body: 'Poppins', sans-serif;
     }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background-color: var(--color-fondo);
       font-family: var(--font-body);
@@ -52,7 +48,6 @@
       max-width: 400px;
       line-height: 1.4;
     }
-
     .contenedor {
       width: 100%;
       max-width: 420px;
@@ -62,7 +57,6 @@
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
-
     .video-wrapper {
       position: relative;
       width: 100%;
@@ -81,7 +75,6 @@
       object-fit: cover;
       border-radius: var(--radios-bordes);
     }
-    /* Rectángulo guía (semi-transparente) */
     .overlay {
       position: absolute;
       top: 12.5%;
@@ -92,10 +85,7 @@
       border-radius: var(--radios-bordes);
       pointer-events: none;
     }
-
-    #canvas {
-      display: none; /* sólo se usará para capturar el frame */
-    }
+    #canvas { display: none; }
     #capture {
       width: 100%;
       padding: 0.75rem;
@@ -109,13 +99,8 @@
       transition: background 0.3s ease;
       margin-bottom: 1rem;
     }
-    #capture:hover {
-      background: #d6799e;
-    }
-    #capture:active {
-      transform: scale(0.98);
-    }
-
+    #capture:hover { background: #d6799e; }
+    #capture:active { transform: scale(0.98); }
     #result {
       background-color: var(--color-card);
       padding: 1rem;
@@ -143,36 +128,24 @@
       list-style-type: disc;
       margin-bottom: 0.75rem;
     }
-    #result ul li {
-      margin-bottom: 0.4rem;
-    }
-    #result p {
-      margin-bottom: 0.6rem;
-    }
-
+    #result ul li { margin-bottom: 0.4rem; }
+    #result p { margin-bottom: 0.6rem; }
     @media (max-width: 480px) {
-      .contenedor {
-        padding: 1rem;
-      }
-      h1 {
-        font-size: 2rem;
-      }
-      #capture {
-        font-size: 1rem;
-      }
+      .contenedor { padding: 1rem; }
+      h1 { font-size: 2rem; }
+      #capture { font-size: 1rem; }
     }
   </style>
 </head>
 <body>
-  <h1>Asesor de Maquillaje AI</h1>
+  <h1>Asesor de Maquillaje AI Mejorado</h1>
   <p class="subtitle">
     Coloca tu rostro dentro del recuadro punteado y pulsa “Analizar”<br/>
-    para conocer tu tono/subtono y recibir recomendaciones.
+    para obtener una lectura de tono/subtono muy precisa y recomendaciones detalladas.
   </p>
 
   <div class="contenedor">
     <div class="video-wrapper">
-      <!-- playsinline y muted para que funcione en móvil -->
       <video id="videoElement" autoplay muted playsinline></video>
       <div class="overlay"></div>
       <canvas id="canvas" width="320" height="240"></canvas>
@@ -186,21 +159,24 @@
   </div>
 
   <script>
+    // ==== Variables principales ====
     const video = document.getElementById("videoElement");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const captureButton = document.getElementById("capture");
     const resultDiv = document.getElementById("result");
 
-    // Tamaño de la región de interés (75% de ancho × 75% de alto), centrado:
-    const ROI = {
-      x: 0.125,   // 12.5% desde la izquierda
-      y: 0.125,   // 12.5% desde arriba
-      w: 0.75,    // 75% del ancho total
-      h: 0.75     // 75% del alto total
-    };
+    // ROI punteada: 12.5 % margen de cada lado → 75 %×75 % en el centro
+    const ROI = { x: 0.125, y: 0.125, w: 0.75, h: 0.75 };
 
-    // 1) Iniciar cámara (funciona en móvil y desktop)
+    // Tres zonas relativas dentro de la ROI donde hay “alta probabilidad de piel”
+    const ZONAS_PIEL = [
+      [0.25, 0.10, 0.50, 0.15], // frente
+      [0.15, 0.30, 0.30, 0.20], // mejilla izquierda
+      [0.55, 0.30, 0.30, 0.20]  // mejilla derecha
+    ];
+
+    // ==== 1) Iniciar la cámara (compatible con móvil) ====
     function iniciarCamara() {
       navigator.mediaDevices
         .getUserMedia({ video: { facingMode: "user" } })
@@ -216,51 +192,27 @@
         });
     }
 
-    // 2) Función para tomar el frame y analizar colores
-    function procesarFrameSimple() {
-      // 2.1) Dibujar el vídeo completo en el canvas oculto
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // 2.2) Calcular coordenadas de la región central (ROI) en pixeles
-      const sx = ROI.x * canvas.width;
-      const sy = ROI.y * canvas.height;
-      const sw = ROI.w * canvas.width;
-      const sh = ROI.h * canvas.height;
-
-      // 2.3) Extraer esa región a otro canvas temporal de 100×100 px
-      const tempCanvas = document.createElement("canvas");
-      tempCanvas.width = tempCanvas.height = 100;
-      const tempCtx = tempCanvas.getContext("2d");
-      // Dibujar y escalar la ROI en 100×100
-      tempCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, 100, 100);
-
-      // 2.4) Calcular promedio en Lab de esos 100×100 píxeles
-      const [Lm, aM, bM] = calcularLabPromedio(tempCanvas);
-
-      // 2.5) Clasificar tono/subtono
-      const { tono, subtono } = clasificarTonoSubtono([Lm, aM, bM]);
-
-      // 2.6) Obtener recomendaciones
-      const rec = sugerirMaquillaje(tono, subtono);
-
-      // 2.7) Mostrar resultado
-      resultDiv.innerHTML = `
-        <h3>Resultados</h3>
-        <p><strong>Tono de piel:</strong> ${tono} (L* = ${Lm.toFixed(1)})</p>
-        <p><strong>Subtono:</strong> ${subtono} (a* = ${aM.toFixed(1)}, b* = ${bM.toFixed(1)})</p>
-        <hr>
-        <h4>Recomendación de maquillaje:</h4>
-        <ul>
-          <li><strong>Base:</strong> ${rec.tipoBase}</li>
-          <li><strong>Sombras:</strong> ${rec.paletaSombras}</li>
-          <li><strong>Rubor:</strong> ${rec.rubor}</li>
-          <li><strong>Labial:</strong> ${rec.labial}</li>
-        </ul>
-        <p><em>Consejo:</em> ${rec.consejo}</p>
-      `;
+    // ==== 2) Filtrado de píxeles de piel en HSV ====
+    function rgbToHsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0, v = max * 100;
+      const d = max - min;
+      s = max === 0 ? 0 : (d / max) * 100;
+      if (d !== 0) {
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+          case g: h = ((b - r) / d + 2) * 60; break;
+          case b: h = ((r - g) / d + 4) * 60; break;
+        }
+      }
+      return [h, s, v];
+    }
+    function esPielHSV(h, s, v) {
+      return (h >= 0 && h <= 50) && (s >= 10 && s <= 68) && (v >= 15 && v <= 100);
     }
 
-    // 3) Conversión RGB → CIELAB (misma lógica que antes)
+    // ==== 3) Conversión RGB → CIELAB ====
     function pivotRgb(u) {
       return u > 0.04045 ? Math.pow((u + 0.055) / 1.055, 2.4) : u / 12.92;
     }
@@ -283,167 +235,248 @@
       const bVal = 200 * (fy - fz);
       return [L, a, bVal];
     }
-    function calcularLabPromedio(canvasTemp) {
-      const ctx2 = canvasTemp.getContext("2d");
-      const data = ctx2.getImageData(0, 0, canvasTemp.width, canvasTemp.height).data;
-      let sumL = 0, sumA = 0, sumB = 0;
-      const totalPx = data.length / 4;
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        const [L, a, bVal] = rgbToLab(r, g, b);
-        sumL += L;
-        sumA += a;
-        sumB += bVal;
-      }
-      return [sumL / totalPx, sumA / totalPx, sumB / totalPx];
+    function trimmedMean(arr) {
+      if (arr.length === 0) return 0;
+      const copy = arr.slice().sort((a, b) => a - b);
+      const n = copy.length;
+      const low = Math.floor(n * 0.05), high = Math.ceil(n * 0.95);
+      const mid = copy.slice(low, high);
+      const sum = mid.reduce((x, y) => x + y, 0);
+      return sum / mid.length;
     }
 
-    // 4) Clasificar tono/subtono (mismo criterio de umbrales)
-    function clasificarTonoSubtono([Lm, aM, bM]) {
+    /**
+     * Calcula L*,a*,b* promedio robusto de un canvas 100×100,
+     * filtrando solo píxeles que cumplan esPielHSV.
+     */
+    function calcularLabPromedioRobusto(canvasPiel) {
+      const ctx2 = canvasPiel.getContext("2d");
+      const data = ctx2.getImageData(0, 0, canvasPiel.width, canvasPiel.height).data;
+      const Ls = [], As = [], Bs = [];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const [h, s, v] = rgbToHsv(r, g, b);
+        if (!esPielHSV(h, s, v)) continue;
+        const [L, a, bVal] = rgbToLab(r, g, b);
+        Ls.push(L); As.push(a); Bs.push(bVal);
+      }
+      if (Ls.length === 0) return [0, 0, 0];
+      return [trimmedMean(Ls), trimmedMean(As), trimmedMean(Bs)];
+    }
+
+    // ==== 4) Extraer Lab global (3 zonas) ====
+    function extraerLabGlobal() {
+      // Dibujar vídeo en canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // ROI absoluta
+      const roiX = ROI.x * canvas.width;
+      const roiY = ROI.y * canvas.height;
+      const roiW = ROI.w * canvas.width;
+      const roiH = ROI.h * canvas.height;
+
+      const labs = [];
+      for (const [xR, yR, wR, hR] of ZONAS_PIEL) {
+        const sx = roiX + xR * roiW;
+        const sy = roiY + yR * roiH;
+        const sw = wR * roiW;
+        const sh = hR * roiH;
+
+        const tmp = document.createElement("canvas");
+        tmp.width = tmp.height = 100;
+        const tmpCtx = tmp.getContext("2d");
+        tmpCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, 100, 100);
+        labs.push(calcularLabPromedioRobusto(tmp));
+      }
+
+      // Promedio de las 3 zonas
+      const Lm = (labs[0][0] + labs[1][0] + labs[2][0]) / 3;
+      const aM = (labs[0][1] + labs[1][1] + labs[2][1]) / 3;
+      const bM = (labs[0][2] + labs[1][2] + labs[2][2]) / 3;
+      return [Lm, aM, bM];
+    }
+
+    // ==== 5) Clasificación fina 4×3 ====
+    function clasificarTonoSubtonoFino([Lm, aM, bM]) {
       let tono;
-      if (Lm >= 75) tono = "Muy claro";
-      else if (Lm >= 60) tono = "Claro";
-      else if (Lm >= 45) tono = "Medio";
-      else if (Lm >= 30) tono = "Oscuro";
+      if (Lm >= 70) tono = "Muy claro";
+      else if (Lm >= 50) tono = "Claro–Medio";
+      else if (Lm >= 30) tono = "Medio–Oscuro";
       else tono = "Muy oscuro";
 
       let subtono;
-      if (aM >= 5 && bM >= 5) subtono = "Cálido";
-      else if (aM <= -5 && bM <= -5) subtono = "Frío";
+      if (aM >= 7 && bM >= 7) subtono = "Cálido";
+      else if (aM <= -7 && bM <= -7) subtono = "Frío";
       else subtono = "Neutro";
 
       return { tono, subtono };
     }
 
-    // 5) Sugerencias de maquillaje (mismo mapa de antes)
-    function sugerirMaquillaje(tono, subtono) {
-      const recomendaciones = {
+    // ==== 6) Recomendaciones + ejemplos de productos ====
+    function sugerirMaquillajeFino(tono, subtono) {
+      const tabla = {
         "Muy claro": {
           Cálido: {
-            tipoBase: "Base ligera con subtono dorado",
-            paletaSombras: "Sombras en tonos durazno y dorado claro",
-            rubor: "Rubor en tono melocotón suave",
-            labial: "Labial coral claro",
-            consejo: "Usa iluminador en pómulos para realzar tu luminosidad."
-          },
-          Frío: {
-            tipoBase: "Base ligera con subtono rosado",
-            paletaSombras: "Sombras en tonos rosa pálido y gris perla",
-            rubor: "Rubor rosa frío suave",
-            labial: "Labial rosa empolvado",
-            consejo: "Evita tonos demasiado amarillos; resalta con rubor frío."
+            tipoBase: "Base ligera/Media con subtono dorado",
+            ejemplos: {
+              base: "Maybelline Fit Me Matte #110 Porcelain (cálido)",
+              sombras: "Too Faced Peach Palette (melocotón claro)",
+              rubor: "NARS \"Orgasm\" (peach rosado)",
+              labial: "MAC \"Peachstock\" (peach clarito)"
+            },
+            consejo: "Ilumina pómulos con champagne, aplica base en capas ligeras."
           },
           Neutro: {
             tipoBase: "Base ligera neutra",
-            paletaSombras: "Sombras en tonos beige y champán",
-            rubor: "Rubor color rosa natural",
-            labial: "Labial nude rosado",
-            consejo: "Un bronzer suave puede dar calidez sin exagerar."
-          }
-        },
-        "Claro": {
-          Cálido: {
-            tipoBase: "Base media con matiz dorado",
-            paletaSombras: "Sombras cálidas (naranja quemado, cobre)",
-            rubor: "Rubor coral medio",
-            labial: "Labial coral intenso",
-            consejo: "Opta por polvos translúcidos para controlar brillos."
+            ejemplos: {
+              base: "Estee Lauder Double Wear Nude #1N0 (neutro)",
+              sombras: "Urban Decay Naked Basics Palette (nude neutro)",
+              rubor: "Tarte \"Dollface\" (rosa neutro)",
+              labial: "Charlotte Tilbury \"Pillow Talk\" (nude rosado neutro)"
+            },
+            consejo: "Usa primer luminoso y rubor rosado muy sutil."
           },
           Frío: {
-            tipoBase: "Base media con matiz rosado",
-            paletaSombras: "Sombras en tonos lavanda y taupe frío",
-            rubor: "Rubor rosa medio",
-            labial: "Labial berry ligero",
-            consejo: "Sombras frías contrastan muy bien en piel clara."
-          },
-          Neutro: {
-            tipoBase: "Base media neutra",
-            paletaSombras: "Sombras nude y marrones claros",
-            rubor: "Rubor rosa-neutro",
-            labial: "Labial nude equilibrado",
-            consejo: "Un contorno suave en mejillas da definición."
+            tipoBase: "Base ligera con subtono rosado",
+            ejemplos: {
+              base: "MAC Studio Fix Fluid NW15 (frío)",
+              sombras: "Anastasia Norvina Palette (rosados fríos)",
+              rubor: "NARS \"Missing\" (rosa frío baby)",
+              labial: "Revlon \"Pink Pout\" (rosa frío suave)"
+            },
+            consejo: "Iluminador grisáceo en arco de ceja, sombras lavanda."
           }
         },
-        "Medio": {
+        "Claro–Medio": {
           Cálido: {
-            tipoBase: "Base media con subtono dorado intenso",
-            paletaSombras: "Sombras tierra, oro antiguo, bronce",
-            rubor: "Rubor terracota",
-            labial: "Labial naranja quemado",
-            consejo: "Ilumina con dorado bajo ceja y pómulo."
-          },
-          Frío: {
-            tipoBase: "Base media con subtono rosado neutro",
-            paletaSombras: "Sombras grises, mauve y ciruela suave",
-            rubor: "Rubor rosado intenso",
-            labial: "Labial frambuesa",
-            consejo: "Sombras ahumadas grises dan profundidad."
+            tipoBase: "Base Media con matiz dorado",
+            ejemplos: {
+              base: "Fenty #150 (cálido)",
+              sombras: "Natasha Denona Bronze Palette (cobre medio)",
+              rubor: "Tarte \"Captivating\" (coral medio)",
+              labial: "MAC \"Lady Danger\" (naranja medio)"
+            },
+            consejo: "Bronzer cálido debajo de pómulos, iluminador dorado suave."
           },
           Neutro: {
-            tipoBase: "Base media neutra",
-            paletaSombras: "Sombras nude-rosadas y café suave",
-            rubor: "Rubor rosa-terroso",
-            labial: "Labial nude con toque cálido",
-            consejo: "Bronzer suave define sin romper neutralidad."
+            tipoBase: "Base Media neutra",
+            ejemplos: {
+              base: "Lancôme Teint Idole #03 Buff (neutro)",
+              sombras: "Too Faced Natural Eyes (nude/marrones claros)",
+              rubor: "NARS \"Dolce Vita\" (rosa neutro)",
+              labial: "Maybelline \"Seductress\" (rosa neutro)"
+            },
+            consejo: "Polvos translúcidos, contorno suave en mejillas."
+          },
+          Frío: {
+            tipoBase: "Base Media con matiz rosado",
+            ejemplos: {
+              base: "MAC NW15 (frío–medio)",
+              sombras: "Huda Rose Gold Palette (rosados fríos)",
+              rubor: "Milani \"Dolce Pink\" (rosado neutro frío)",
+              labial: "MAC \"Twig\" (rosa ciruela frío)"
+            },
+            consejo: "Difumina primero un mauve gris, luego saturar con ciruela."
           }
         },
-        "Oscuro": {
+        "Medio–Oscuro": {
           Cálido: {
-            tipoBase: "Base media-alta con subtono dorado oscuro",
-            paletaSombras: "Sombras cobre, oro viejo, bronce intenso",
-            rubor: "Rubor terracota profundo",
-            labial: "Labial rojo anaranjado intenso",
-            consejo: "Iluminador dorado en pómulos realza tu piel."
-          },
-          Frío: {
-            tipoBase: "Base media-alta con subtono rosado oscuro",
-            paletaSombras: "Sombras berenjena, gris oscuro, azul petróleo",
-            rubor: "Rubor borgoña oscuro",
-            labial: "Labial vino",
-            consejo: "Sombras frías intensas resaltan en piel oscura."
+            tipoBase: "Media–Alta cobertura, subtono dorado",
+            ejemplos: {
+              base: "Fenty #230 (cálido)",
+              sombras: "Morphe 35O2 (bronces profundos)",
+              rubor: "Bobbi Brown \"Desert Pink\" (terracota medio)",
+              labial: "Fenty \"Uncensored\" (rojo cálido medio)"
+            },
+            consejo: "Contorno con bronzer cálido mate, iluminador dorado en pómulos."
           },
           Neutro: {
-            tipoBase: "Base media-alta neutra",
-            paletaSombras: "Sombras café profundo y taupe neutro",
-            rubor: "Rubor rosa-terroso profundo",
-            labial: "Labial nude-marrón medio",
-            consejo: "Contorno suave con bronzer mate define rasgos."
+            tipoBase: "Media–Alta cobertura neutra",
+            ejemplos: {
+              base: "MAC NC42 (neutro)",
+              sombras: "Urban Decay Naked Heat (neutros oscuros)",
+              rubor: "NARS \"Deep Throat\" (rosa terroso)",
+              labial: "Charlotte \"Bond Girl\" (nude medio neutro)"
+            },
+            consejo: "Contorno suave bajo pómulos, mezclar marrón oscuro mate y taupe."
+          },
+          Frío: {
+            tipoBase: "Media–Alta cobertura, subtono rosado",
+            ejemplos: {
+              base: "Fenty #260 (frío)",
+              sombras: "Huda Mercury Retrograde (ciruela/azul fríos)",
+              rubor: "NARS \"Sin\" (rosado ciruela frío)",
+              labial: "MAC \"Diva\" (borgoña frío)"
+            },
+            consejo: "Delineado negro suave, sombra gris carbón ahumado."
           }
         },
         "Muy oscuro": {
           Cálido: {
-            tipoBase: "Base alta con subtono dorado profundo",
-            paletaSombras: "Sombras cobre intenso y dorado oscuro",
-            rubor: "Rubor profundo color arcilla",
-            labial: "Labial borgoña cálido",
-            consejo: "Iluminador bronce en pómulos crea glow cálido."
-          },
-          Frío: {
-            tipoBase: "Base alta con subtono rosado profundo",
-            paletaSombras: "Sombras ciruela profundo y gris ahumado",
-            rubor: "Rubor rojo oscuro frío",
-            labial: "Labial morado intenso",
-            consejo: "Sombras frías aportan contraste espectacular."
+            tipoBase: "Alta cobertura, subtono dorado oscuro",
+            ejemplos: {
+              base: "Fenty #420 (cálido profundo)",
+              sombras: "Huda Desert Dusk (bronces intensos)",
+              rubor: "Fenty \"Hibiscus\" (naranja intenso)",
+              labial: "MAC \"Fixed on Drama\" (borgoña cálido)"
+            },
+            consejo: "Contorno con bronzer mate oscuro, iluminador dorado intenso."
           },
           Neutro: {
-            tipoBase: "Base alta neutra",
-            paletaSombras: "Sombras marrón oscuro y taupe profundo",
-            rubor: "Rubor vino-neutro",
-            labial: "Labial nude-marrón oscuro",
-            consejo: "Contorno y bronzer mate resaltan facciones."
+            tipoBase: "Alta cobertura neutra profunda",
+            ejemplos: {
+              base: "MAC NC50 (neutro oscuro)",
+              sombras: "Urban Decay Naked Ultimate Basics (neutros profundos)",
+              rubor: "NARS \"Taos\" (rojo terroso profundo)",
+              labial: "Charlotte \"Dark Model\" (marrón chocolate neutro)"
+            },
+            consejo: "Iluminador neutro no demasiado dorado, contorno marcado."
+          },
+          Frío: {
+            tipoBase: "Alta cobertura, subtono rosado profundo",
+            ejemplos: {
+              base: "Fenty #490 (frío profundo)",
+              sombras: "Urban Decay Naked Smoky (ciruelas fríos)",
+              rubor: "Make Up For Ever \"Poison\" (vino frío)",
+              labial: "MAC \"Underworld\" (morado casi negro)"
+            },
+            consejo: "Delineado negro intenso, iluminador plateado en pómulos."
           }
         }
       };
-      return recomendaciones[tono][subtono];
+
+      return tabla[tono][subtono];
     }
 
-    // 6) Evento al hacer clic en “Analizar”
-    captureButton.addEventListener("click", () => {
-      resultDiv.textContent = "🔄 Analizando color de piel...";
-      procesarFrameSimple();
-    });
+    // ==== 7) Función principal “muy precisa” ====
+    function procesarColorMuyPreciso() {
+      resultDiv.textContent = "🔄 Analizando color de piel (preciso)...";
+      const [Lm, aM, bM] = extraerLabGlobal();
+      const { tono, subtono } = clasificarTonoSubtonoFino([Lm, aM, bM]);
+      const rec = sugerirMaquillajeFino(tono, subtono);
 
-    // Iniciar cámara cuando cargue la página
+      resultDiv.innerHTML = `
+        <h3>Resultados precisos</h3>
+        <p><strong>Tono de piel:</strong> ${tono} (L* = ${Lm.toFixed(1)})</p>
+        <p><strong>Subtono:</strong> ${subtono} (a* = ${aM.toFixed(1)}, b* = ${bM.toFixed(1)})</p>
+        <hr>
+        <h4>Recomendación detallada</h4>
+        <p><em>Base sugerida:</em> ${rec.tipoBase}</p>
+        <ul>
+          <li><strong>Ejemplo de base:</strong> ${rec.ejemplos.base}</li>
+          <li><strong>Ejemplo de paleta sombras:</strong> ${rec.ejemplos.sombras}</li>
+          <li><strong>Ejemplo rubor:</strong> ${rec.ejemplos.rubor}</li>
+          <li><strong>Ejemplo labial:</strong> ${rec.ejemplos.labial}</li>
+        </ul>
+        <p><em>Consejo:</em> ${rec.consejo}</p>
+      `;
+    }
+
+    // ==== 8) Evento al pulsar “Analizar” ====
+    captureButton.addEventListener("click", procesarColorMuyPreciso);
+
+    // Al cargar la página, arrancamos la cámara
     window.addEventListener("load", iniciarCamara);
   </script>
 </body>
