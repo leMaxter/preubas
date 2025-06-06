@@ -40,5 +40,17 @@
     </footer>
     <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
     <script src="script.js"></script>
+    <script>
+    const originalLog = console.log;
+    const logBox = document.createElement('div');
+    logBox.style = 'background:#000; color:#0f0; font-size:12px; padding:10px; max-height:150px; overflow:auto;';
+    document.body.appendChild(logBox);
+
+    console.log = function (...args) {
+        logBox.innerHTML += args.join(' ') + '<br>';
+        originalLog.apply(console, args);
+    };
+</script>
+
 </body>
 </html>
