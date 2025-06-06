@@ -322,8 +322,21 @@
         data = data.filter(p => {
         const precioNum = parseFloat(p.price);
         return !isNaN(precioNum) && precioNum > 0;
+           });
 
-    
+           // 2) Filtrar solo aquellos cuyos enlaces pertenezcan a dominios de tiendas españolas
+        const dominiosES = [
+            "primor.eu",
+            "sephora.es",
+            "douglas.es",
+            "maquillalia.es",
+            "perfumesclub.com",
+            "mifarma.es",
+            "druni.es"
+          ];
+              data = data.filter(p => {
+              return typeof p.product_link === "string" &&
+             dominiosES.some(dom => p.product_link.includes(dom));
           });
 
         // Filtrado adicional según subtono (opcional):
