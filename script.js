@@ -16,11 +16,18 @@ function cargarModelo() {
 }
 
 function iniciarFaceApi() {
-    const options = { withLandmarks: false, withDescriptors: false };
+    const options = { withLandmarks: true, withDescriptors: false };
     faceapi = ml5.faceApi(video, options, () => {
-        faceApiReady = true;
-        console.log("✅ FaceApi lista");
-        resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
+        console.log("📥 FaceApi cargada, haciendo prueba de detección...");
+        faceapi.detect((err, results) => {
+            if (err) {
+                console.error("❌ Error inicial en FaceApi:", err);
+            } else {
+                console.log("🧠 Primera detección:", results);
+                faceApiReady = true;
+                resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
+            }
+        });
     });
 }
 
@@ -49,6 +56,7 @@ function rgbToHsv(r, g, b) {
     let h, s, v = max;
     const d = max - min;
     s = max === 0 ? 0 : d / max;
+
     if (max === min) {
         h = 0;
     } else {
@@ -59,6 +67,7 @@ function rgbToHsv(r, g, b) {
         }
         h /= 6;
     }
+
     return [h * 360, s * 100, v * 255];
 }
 
@@ -71,9 +80,9 @@ function analizarImagen() {
         return;
     }
 
-    faceapi.detect((err, results) => {
-        console.log("📦 faceapi.detect() ejecutado");
+    console.log("📦 Ejecutando faceapi.detect()...");
 
+    faceapi.detect((err, results) => {
         if (err) {
             console.error('❌ Error en FaceApi:', err);
             resultDiv.textContent = 'Error al detectar el rostro.';
@@ -82,7 +91,7 @@ function analizarImagen() {
 
         console.log("🔍 Resultados:", results);
 
-        if (results && results.length > 0) {
+        if (results && results.length > 0 && results[0].alignedRect) {
             const { x, y, width, height } = results[0].alignedRect._box;
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -105,8 +114,8 @@ function analizarImagen() {
             console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
             mostrarResultado(hAvg, sAvg, vAvg);
         } else {
+            console.warn("🚫 No se detectó un rostro o falta alignedRect");
             resultDiv.textContent = 'No se detectó un rostro en la imagen.';
-            console.warn("⚠️ No se detectó rostro");
         }
     });
 }
@@ -126,12 +135,13 @@ function mostrarResultado(h, s, v) {
         });
 }
 
+// Inicializar todo
 window.addEventListener('load', () => {
     iniciarCamara();
     cargarModelo();
 });
 
-// Compatibilidad móvil: click + touch
+// Compatibilidad móvil: click + touchstart
 captureButton.addEventListener('click', analizarImagen);
 captureButton.addEventListener('touchstart', (e) => {
     e.preventDefault(); // evitar doble ejecución
