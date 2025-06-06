@@ -16,14 +16,17 @@ function cargarModelo() {
 }
 
 function iniciarFaceApi() {
-    const options = { withLandmarks: true, withDescriptors: false };
+    const options = {
+        withLandmarks: true,
+        withDescriptors: false,
+        MODEL_URL: 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'
+    };
 
     faceapi = ml5.faceApi(video, options, modelListo);
 
     function modelListo() {
         console.log("📥 FaceApi cargada correctamente");
 
-        // Esperamos unos ms a que la cámara estabilice (en móviles a veces tarda)
         setTimeout(() => {
             faceapi.detect((err, results) => {
                 if (err || !results) {
@@ -36,9 +39,10 @@ function iniciarFaceApi() {
                 faceApiReady = true;
                 resultDiv.textContent = "✔️ El modelo está listo. Puedes pulsar Analizar.";
             });
-        }, 1000); // Espera de 1 segundo (ajustable)
+        }, 1000);
     }
 }
+
 
 
 function iniciarCamara() {
