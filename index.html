@@ -316,7 +316,12 @@
 
       try {
         const resp = await fetch(url);
-        const data = await resp.json();
+        let data = await resp.json();
+      // Eliminar productos con precio 0 o sin precio válido
+        data = data.filter(p => {
+        const precioNum = parseFloat(p.price);
+        return !isNaN(precioNum) && precioNum > 0;
+      });
 
         // Filtrado adicional según subtono (opcional):
         // - Para 'Cálido', incluimos aquellos productos cuyas "product_colors" contengan palabras cálidas:
