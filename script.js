@@ -5,16 +5,14 @@ const canvas = document.getElementById("canvas");
 const resultDiv = document.getElementById("result");
 const captureButton = document.getElementById("capture");
 
-let knn;                      // Nuestro clasificador KNN simulado
-let lastBox = null;           // Aquí guardaremos la última caja facial detectada
-let deteccionActiva = false;  // Indicador de que MediaPipe ya está listo
+let knn;                    // Clasificador simulado
+let lastBox = null;         // Última caja facial detectada (normalizada)
+let deteccionActiva = false; // Indica que MediaPipe ya ha detectado al menos un rostro
 
-// 1) Inicializar el “clasificador” (simulado con reglas sencillas)
+// 1) Inicializar el “clasificador” (simulado con reglas muy sencillas)
 function cargarClasificador() {
-  // Simulamos un KNN básico sin ml5.js para no cargar librerías extra:
   knn = {
     classify: ([h, s, v]) => {
-      // Tres reglas arbitrarias solamente como ejemplo:
       if (v < 100) return { label: "Tonos intensos y delineados marcados." };
       if (h < 100) return { label: "Tonos claros y base luminosa para iluminar tu rostro." };
       return { label: "Colores neutros y rubores suaves." };
@@ -23,14 +21,12 @@ function cargarClasificador() {
   console.log("✅ Clasificador cargado");
 }
 
-// 2) Función auxiliar para convertir RGB → HSV
+// 2) Función auxiliar RGB → HSV
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0,
-    s = 0,
-    v = max;
+  let h = 0, s = 0, v = max;
   const d = max - min;
   s = max === 0 ? 0 : d / max;
   if (max !== min) {
@@ -50,40 +46,37 @@ function rgbToHsv(r, g, b) {
   return [h * 360, s * 100, v * 255];
 }
 
-// 3) Función que dibuja el video en el canvas y extrae el color promedio sobre la última caja
+// 3) Dibuja el vídeo en el canvas y extrae HSV promedio de la última caja detectada
 function procesarYClasificar() {
   if (!lastBox) {
     resultDiv.textContent = "⚠️ No se detecta rostro actualmente.";
     return;
   }
 
-  // Pintamos en el canvas la imagen actual del video
+  // Ajustamos canvas al tamaño real del vídeo
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // Extraemos las coordenadas de la última cara detectada (normalizadas)
+  // Caja normalizada a píxeles
   const { xCenter, yCenter, width, height } = lastBox;
   const x = (xCenter - width / 2) * canvas.width;
   const y = (yCenter - height / 2) * canvas.height;
   const w = width * canvas.width;
   const h = height * canvas.height;
 
-  // Intentamos leer los píxeles de la región facial
   let data;
   try {
     data = ctx.getImageData(x, y, w, h).data;
   } catch (err) {
-    console.error("❌ No se pudo obtener la imagen de la región facial:", err);
+    console.error("❌ No se pudo leer la región facial:", err);
     resultDiv.textContent = "❌ Error al leer la imagen del rostro.";
     return;
   }
 
   // Calculamos HSV promedio
-  let hSum = 0,
-    sSum = 0,
-    vSum = 0;
+  let hSum = 0, sSum = 0, vSum = 0;
   const pixelCount = data.length / 4;
   for (let i = 0; i < data.length; i += 4) {
     const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
@@ -96,7 +89,7 @@ function procesarYClasificar() {
   const vAvg = vSum / pixelCount;
   console.log("🎨 HSV promedio:", hAvg, sAvg, vAvg);
 
-  // Clasificamos con nuestro KNN simulado
+  // Clasificación con el KNN simulado
   const { label } = knn.classify([hAvg, sAvg, vAvg]);
   resultDiv.innerHTML = `
     <strong>Recomendación:</strong> ${label}<br>
@@ -104,20 +97,19 @@ function procesarYClasificar() {
   `;
 }
 
-// 4) Configuramos MediaPipe Face Detection
-const faceDetector = new FaceDetection.FaceDetection({
-  locateFile: (file) =>
+// 4) Configuramos MediaPipe Face Detection (uso correcto de faceDetection.FaceDetector)
+const faceDetector = new faceDetection.FaceDetector({
+  locateFile: (file) => 
     `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
 });
 faceDetector.setOptions({
-  modelSelection: 1,          // Modelo "largo alcance" (más preciso pero más pesado)
-  minDetectionConfidence: 0.6, // confianza mínima para considerar una detección
+  modelSelection: 1,           // 0 = corto alcance, 1 = largo alcance
+  minDetectionConfidence: 0.6, // umbral mínimo
 });
 
-// Cada vez que MediaPipe detecta en el frame, guardamos la caja en lastBox
 faceDetector.onResults((results) => {
   if (results.detections.length > 0) {
-    // Tomamos siempre la primera cara (results.detections[0])
+    // Tomamos la primera detección
     lastBox = results.detections[0].boundingBox;
     if (!deteccionActiva) {
       deteccionActiva = true;
@@ -129,16 +121,14 @@ faceDetector.onResults((results) => {
   }
 });
 
-// 5) Iniciamos la cámara y vinculamos el detector para procesar cada frame
+// 5) Iniciar la cámara y vincular con MediaPipe
 function iniciarCamara() {
-  navigator.mediaDevices
-    .getUserMedia({ video: true })
+  navigator.mediaDevices.getUserMedia({ video: true })
     .then((stream) => {
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
         console.log("📸 Cámara activada");
-        // Creamos un objeto Camera de MediaPipe que envía cada frame a faceDetector
         new Camera(video, {
           onFrame: async () => {
             await faceDetector.send({ image: video });
@@ -154,13 +144,13 @@ function iniciarCamara() {
     });
 }
 
-// 6) Al pulsar el botón, procesamos la última caja facial
+// 6) Al pulsar “Analizar”, procesar y clasificar
 captureButton.addEventListener("click", () => {
   resultDiv.textContent = "Analizando...";
   procesarYClasificar();
 });
 
-// 7) Arrancamos todo cuando se cargue la página
+// 7) Arrancar todo al cargar la página
 window.addEventListener("load", () => {
   cargarClasificador();
   iniciarCamara();
